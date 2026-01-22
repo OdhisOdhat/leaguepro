@@ -1,8 +1,10 @@
 
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { ErrorInfo, ReactNode } from 'react';
 
 interface Props {
-  children: ReactNode;
+  // Making children optional avoids "missing children" errors in some JSX compilers
+  // even when children are provided between component tags in the parent.
+  children?: ReactNode;
   componentName?: string;
 }
 
@@ -11,21 +13,32 @@ interface State {
   error: Error | null;
 }
 
-class ErrorBoundary extends Component<Props, State> {
-  public state: State = {
-    hasError: false,
-    error: null
-  };
+/**
+ * Standard React Error Boundary component.
+ * Fix: Explicitly use React.Component to ensure this.props, this.state, and this.setState 
+ * are correctly identified by the TypeScript compiler.
+ */
+class ErrorBoundary extends React.Component<Props, State> {
+  // Fix: Explicit constructor and state initialization for better compatibility and typing.
+  constructor(props: Props) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null
+    };
+  }
 
   public static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    // Fix: Accessing component name from props via this.props for error logging.
     console.error(`Uncaught error in ${this.props.componentName || 'Component'}:`, error, errorInfo);
   }
 
   public render() {
+    // Fix: Accessing error state via this.state for conditional rendering.
     if (this.state.hasError) {
       return (
         <div className="p-8 bg-white border-2 border-dashed border-red-100 rounded-[2.5rem] text-center space-y-4 my-4 animate-in fade-in zoom-in-95">
@@ -35,11 +48,13 @@ class ErrorBoundary extends Component<Props, State> {
           <div className="space-y-1">
             <h3 className="text-xl font-black text-gray-900 tracking-tight">Component Encountered an Issue</h3>
             <p className="text-sm text-gray-500 font-medium">
+              {/* Fix: Accessing componentName inherited from React.Component props via this.props. */}
               Something went wrong while rendering <span className="text-blue-600 font-bold">{this.props.componentName || 'this section'}</span>.
             </p>
           </div>
           <div className="pt-2 flex justify-center space-x-3">
             <button
+              // Fix: Accessing inherited this.setState method to reset the boundary.
               onClick={() => this.setState({ hasError: false, error: null })}
               className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold text-xs hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 flex items-center space-x-2"
             >
@@ -54,6 +69,7 @@ class ErrorBoundary extends Component<Props, State> {
               <span>Full Reload</span>
             </button>
           </div>
+          {/* Fix: Accessing error object from state via this.state. */}
           {this.state.error && (
             <details className="mt-4 text-left group">
               <summary className="text-[10px] font-black text-gray-300 uppercase cursor-pointer hover:text-gray-400 text-center tracking-widest list-none">
@@ -61,6 +77,7 @@ class ErrorBoundary extends Component<Props, State> {
               </summary>
               <div className="mt-4 p-4 bg-gray-900 rounded-2xl overflow-x-auto">
                 <code className="text-[10px] font-mono text-red-400 break-all leading-relaxed">
+                  {/* Fix: Accessing captured error properties via this.state.error. */}
                   {this.state.error.toString()}
                 </code>
               </div>
@@ -70,7 +87,7 @@ class ErrorBoundary extends Component<Props, State> {
       );
     }
 
-    // Fix: Accessing children through this.props
+    // Fix: Accessing children inherited from React.Component props via this.props.
     return this.props.children;
   }
 }
