@@ -1,22 +1,23 @@
 
 import React from 'react';
-import { Standing, Team } from '../types';
+import { Standing, Team, LeagueSettings } from '../types';
 
 interface StandingsTableProps {
   standings: Standing[];
   teams: Team[];
+  leagueSettings: LeagueSettings;
 }
 
-const StandingsTable: React.FC<StandingsTableProps> = ({ standings, teams }) => {
+const StandingsTable: React.FC<StandingsTableProps> = ({ standings, teams, leagueSettings }) => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-end">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">League Standings</h1>
+          <h1 className="text-3xl font-bold text-gray-900">{leagueSettings.name} Standings</h1>
           <p className="text-gray-500">Live updates after every match result.</p>
         </div>
         <div className="bg-blue-600 text-white px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider">
-          Season 2024
+          {leagueSettings.season}
         </div>
       </div>
 
