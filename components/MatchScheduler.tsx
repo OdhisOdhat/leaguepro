@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Match, Team, UserRole, GoalScorer, Player, CardEvent } from '../types';
+import { Match, Team, UserRole, GoalScorer, Player, CardEvent, LeagueSettings } from '../types';
 
 interface MatchSchedulerProps {
   matches: Match[];
@@ -9,7 +9,8 @@ interface MatchSchedulerProps {
   role: UserRole;
   selectedTeamId: string | null;
   onAddMatch: (m: Match) => void;
-  onUpdateMatch: (id: string, h: number, a: number, scorers: GoalScorer[], cards?: CardEvent[]) => void;
+  onUpdateMatch: (id: string, h: number, a: number, scorers: GoalScorer[], cards?: CardEvent[], refereeName?: string) => void;
+  leagueSettings: LeagueSettings;
 }
 
 const MatchScheduler: React.FC<MatchSchedulerProps> = ({ 
@@ -19,7 +20,8 @@ const MatchScheduler: React.FC<MatchSchedulerProps> = ({
   role,
   selectedTeamId,
   onAddMatch, 
-  onUpdateMatch 
+  onUpdateMatch,
+  leagueSettings
 }) => {
   const [showAdd, setShowAdd] = useState(false);
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
@@ -27,6 +29,7 @@ const MatchScheduler: React.FC<MatchSchedulerProps> = ({
   const [scores, setScores] = useState({ home: 0, away: 0 });
   const [currentScorers, setCurrentScorers] = useState<GoalScorer[]>([]);
   const [currentCards, setCurrentCards] = useState<CardEvent[]>([]);
+  const [currentReferee, setCurrentReferee] = useState('');
   
   const [newMatch, setNewMatch] = useState<Partial<Match>>({
     date: '',
@@ -34,7 +37,8 @@ const MatchScheduler: React.FC<MatchSchedulerProps> = ({
     venue: '',
     homeTeamId: '',
     awayTeamId: '',
-    matchWeek: 1
+    matchWeek: 1,
+    refereeName: ''
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -65,10 +69,10 @@ const MatchScheduler: React.FC<MatchSchedulerProps> = ({
     setScores({ home: match.homeScore || 0, away: match.awayScore || 0 });
     setCurrentScorers(match.scorers || []);
     setCurrentCards(match.cards || []);
+    setCurrentReferee(match.refereeName || '');
   };
 
   const addGoal = (player: Player, teamId: string) => {
-    // Default to the current minute or 0
     const minute = currentScorers.length > 0 ? Math.min(90, currentScorers[currentScorers.length - 1].minute + 5) : 10;
     setCurrentScorers([...currentScorers, { 
       playerId: player.id, 
@@ -102,7 +106,7 @@ const MatchScheduler: React.FC<MatchSchedulerProps> = ({
   };
 
   const saveResult = (match: Match) => {
-    onUpdateMatch(match.id, scores.home, scores.away, currentScorers, currentCards);
+    onUpdateMatch(match.id, scores.home, scores.away, currentScorers, currentCards, currentReferee);
     setEditingMatchId(null);
   };
 
@@ -130,7 +134,7 @@ const MatchScheduler: React.FC<MatchSchedulerProps> = ({
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 className="text-3xl font-black text-gray-900 tracking-tight">Fixtures & Results</h2>
-          <p className="text-gray-500">Upcoming games and recent scores. Click a completed match for details.</p>
+          <p className="text-gray-500">{leagueSettings.name} matches for {leagueSettings.season}.</p>
         </div>
         {isAdmin && (
           <button 
@@ -174,10 +178,14 @@ const MatchScheduler: React.FC<MatchSchedulerProps> = ({
             <input type="text" required className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-gray-50" placeholder="Stadium Name" value={newMatch.venue} onChange={e => setNewMatch({ ...newMatch, venue: e.target.value })} />
           </div>
           <div className="space-y-2">
+            <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Lead Referee</label>
+            <input type="text" className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500" placeholder="Referee Name" value={newMatch.refereeName} onChange={e => setNewMatch({ ...newMatch, refereeName: e.target.value })} />
+          </div>
+          <div className="space-y-2">
             <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Match Week</label>
             <input type="number" min="1" required className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="e.g. 1" value={newMatch.matchWeek} onChange={e => setNewMatch({ ...newMatch, matchWeek: parseInt(e.target.value) || 1 })} />
           </div>
-          <div className="flex items-end md:col-span-3">
+          <div className="flex items-end md:col-span-2">
             <button type="submit" className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-black hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 uppercase tracking-widest text-sm">
               Confirm Schedule
             </button>
@@ -204,7 +212,10 @@ const MatchScheduler: React.FC<MatchSchedulerProps> = ({
                     <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full uppercase tracking-tighter">WEEK {match.matchWeek}</span>
                   </div>
                   <span className="text-lg font-black text-gray-900">{new Date(match.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
-                  <span className="text-xs text-gray-400 font-medium uppercase tracking-widest">{match.time} • {match.venue}</span>
+                  <div className="flex flex-col">
+                    <span className="text-xs text-gray-400 font-medium uppercase tracking-widest">{match.time} • {match.venue}</span>
+                    {match.refereeName && <span className="text-[10px] font-bold text-gray-300 uppercase mt-0.5"><i className="fas fa-bullhorn mr-1"></i> {match.refereeName}</span>}
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-center space-x-4 md:space-x-8 w-full md:w-2/4">
@@ -268,6 +279,18 @@ const MatchScheduler: React.FC<MatchSchedulerProps> = ({
 
               {isEditing && (
                 <div className="mt-8 pt-8 border-t border-gray-100 space-y-8 animate-in slide-in-from-bottom-2 duration-300" onClick={e => e.stopPropagation()}>
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                    <div className="flex-1">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Match Official (Referee)</label>
+                      <input 
+                        type="text" 
+                        placeholder="Assign Official..." 
+                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 font-bold focus:ring-2 focus:ring-blue-400 outline-none" 
+                        value={currentReferee} 
+                        onChange={(e) => setCurrentReferee(e.target.value)}
+                      />
+                    </div>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                     {[match.homeTeamId, match.awayTeamId].map((tId) => {
                       const team = getTeam(tId);
@@ -360,8 +383,14 @@ const MatchScheduler: React.FC<MatchSchedulerProps> = ({
               </button>
               
               <div className="text-center space-y-2 mb-8">
-                <span className="text-[10px] font-black text-blue-300 uppercase tracking-[0.3em]">Season 2024 • Matchweek {selectedMatch.matchWeek}</span>
+                <span className="text-[10px] font-black text-blue-300 uppercase tracking-[0.3em]">{leagueSettings.season} • Matchweek {selectedMatch.matchWeek}</span>
                 <p className="text-sm font-bold text-gray-400">{selectedMatch.venue}</p>
+                {selectedMatch.refereeName && (
+                  <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-white/10 border border-white/10 mt-2">
+                    <i className="fas fa-user-tie text-[10px] text-blue-400"></i>
+                    <span className="text-[10px] font-black uppercase tracking-widest">Referee: {selectedMatch.refereeName}</span>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center justify-between">
