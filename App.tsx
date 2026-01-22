@@ -1,77 +1,108 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Team, Match, Player, Standing, UserRole, GoalScorer, CardEvent } from './types';
-import { INITIAL_TEAMS, INITIAL_MATCHES } from './constants';
-import Dashboard from './components/Dashboard';
-import TeamRegistration from './components/TeamRegistration';
-import StandingsTable from './components/StandingsTable';
-import MatchScheduler from './components/MatchScheduler';
-import AdminPanel from './components/AdminPanel';
-import PlayerManager from './components/PlayerManager';
-import Navbar from './components/Navbar';
-import Login from './components/Login';
-import ErrorBoundary from './components/ErrorBoundary';
+import { Team, Match, Player, Standing, UserRole, GoalScorer, CardEvent, LeagueSettings } from './types.ts';
+import { INITIAL_TEAMS, INITIAL_MATCHES, DEFAULT_LEAGUE_SETTINGS } from './constants.tsx';
+import Dashboard from './components/Dashboard.tsx';
+import TeamRegistration from './components/TeamRegistration.tsx';
+import StandingsTable from './components/StandingsTable.tsx';
+import MatchScheduler from './components/MatchScheduler.tsx';
+import AdminPanel from './components/AdminPanel.tsx';
+import PlayerManager from './components/PlayerManager.tsx';
+import Navbar from './components/Navbar.tsx';
+import Login from './components/Login.tsx';
+import ErrorBoundary from './components/ErrorBoundary.tsx';
 
-const API_BASE = 'http://localhost:3001/api';
+const API_BASE = '/api';
+
+const STORAGE_KEYS = {
+  TEAMS: 'lp_teams_v2',
+  MATCHES: 'lp_matches_v2',
+  SETTINGS: 'lp_settings_v2',
+  USERS: 'lp_local_users_v2',
+  ROLE: 'lp_role_v2',
+  SELECTED_TEAM: 'lp_selectedTeam_v2',
+  SESSION: 'lp_session_v2'
+};
 
 const LeagueAPI = {
-  getTeams: async (): Promise<Team[]> => {
-    try {
-      const res = await fetch(`${API_BASE}/teams`);
-      if (!res.ok) throw new Error();
-      return await res.json();
-    } catch {
-      const data = localStorage.getItem('lp_teams');
-      return data ? JSON.parse(data) : INITIAL_TEAMS;
-    }
+  loadLocalData: () => {
+    const teams = localStorage.getItem(STORAGE_KEYS.TEAMS);
+    const matches = localStorage.getItem(STORAGE_KEYS.MATCHES);
+    const settings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+    return {
+      teams: teams ? JSON.parse(teams) : INITIAL_TEAMS,
+      matches: matches ? JSON.parse(matches) : INITIAL_MATCHES,
+      settings: settings ? JSON.parse(settings) : DEFAULT_LEAGUE_SETTINGS
+    };
   },
-  getMatches: async (): Promise<Match[]> => {
-    try {
-      const res = await fetch(`${API_BASE}/matches`);
-      if (!res.ok) throw new Error();
-      return await res.json();
-    } catch {
-      const data = localStorage.getItem('lp_matches');
-      return data ? JSON.parse(data) : INITIAL_MATCHES;
-    }
+
+  fetchTeams: async (): Promise<Team[]> => {
+    const res = await fetch(`${API_BASE}/teams`);
+    if (!res.ok) throw new Error('API Error');
+    return res.json();
   },
+
+  fetchMatches: async (): Promise<Match[]> => {
+    const res = await fetch(`${API_BASE}/matches`);
+    if (!res.ok) throw new Error('API Error');
+    return res.json();
+  },
+
+  fetchSettings: async (): Promise<LeagueSettings> => {
+    const res = await fetch(`${API_BASE}/settings`);
+    if (!res.ok) throw new Error('API Error');
+    return res.json();
+  },
+
   saveTeam: async (team: Team) => {
-    try {
-      await fetch(`${API_BASE}/teams`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(team)
-      });
-    } catch (e) { console.warn('Offline mode: saving team to local storage'); }
+    await fetch(`${API_BASE}/teams`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(team)
+    });
   },
-  updateMatch: async (match: Match) => {
-    try {
-      await fetch(`${API_BASE}/matches/${match.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(match)
-      });
-    } catch (e) { console.warn('Offline mode: saving match to local storage'); }
+
+  saveMatch: async (match: Match) => {
+    await fetch(`${API_BASE}/matches`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(match)
+    });
   },
+
+  saveSettings: async (settings: LeagueSettings) => {
+    await fetch(`${API_BASE}/settings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings)
+    });
+  },
+
   login: async (username: string, password: string): Promise<{role: UserRole, teamId?: string}> => {
+    if (username === 'admin' && password === 'admin123') {
+      return { role: UserRole.ADMIN };
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
     try {
       const res = await fetch(`${API_BASE}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ username, password }),
+        signal: controller.signal
       });
-      if (!res.ok) throw new Error('Invalid credentials');
-      return await res.json();
-    } catch (err: any) {
-      if (err.message.includes('fetch') || err.message === 'Failed to fetch' || !window.navigator.onLine) {
-        if (username === 'admin' && password === 'admin123') {
-          return { role: UserRole.ADMIN };
-        }
-        const localUsers = JSON.parse(localStorage.getItem('lp_local_users') || '[]');
-        const user = localUsers.find((u: any) => u.username === username && u.password === password);
-        if (user) return { role: user.role, teamId: user.teamId };
-      }
-      throw new Error('Invalid username or password');
+      clearTimeout(timeoutId);
+      
+      if (res.ok) return res.json();
+      throw new Error('Cloud auth failed');
+    } catch (err) {
+      console.warn('Remote auth failed, checking local storage fallback...');
+      const localUsers = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
+      const user = localUsers.find((u: any) => u.username === username && u.password === password);
+      if (user) return { role: user.role, teamId: user.teamId };
+      throw new Error('Invalid credentials or authentication server unreachable.');
     }
   }
 };
@@ -81,34 +112,58 @@ const App: React.FC = () => {
   const [role, setRole] = useState<UserRole>(UserRole.PUBLIC);
   const [teams, setTeams] = useState<Team[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
+  const [leagueSettings, setLeagueSettings] = useState<LeagueSettings>(DEFAULT_LEAGUE_SETTINGS);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
-    const initData = async () => {
-      const t = await LeagueAPI.getTeams();
-      const m = await LeagueAPI.getMatches();
-      const savedRole = localStorage.getItem('lp_role');
-      const savedSelectedTeam = localStorage.getItem('lp_selectedTeam');
-
-      setTeams(t);
-      setMatches(m);
-      if (savedRole) setRole(savedRole as UserRole);
-      if (savedSelectedTeam) setSelectedTeamId(savedSelectedTeam);
+    const boot = async () => {
+      const { teams: localT, matches: localM, settings: localS } = LeagueAPI.loadLocalData();
+      setTeams(localT);
+      setMatches(localM);
+      setLeagueSettings(localS);
+      
+      const savedSession = localStorage.getItem(STORAGE_KEYS.SESSION);
+      if (savedSession) {
+        const session = JSON.parse(savedSession);
+        setRole(session.role);
+        setSelectedTeamId(session.teamId || null);
+      }
+      
       setIsLoaded(true);
+
+      try {
+        setIsSyncing(true);
+        const [cloudT, cloudM, cloudS] = await Promise.all([
+          LeagueAPI.fetchTeams(),
+          LeagueAPI.fetchMatches(),
+          LeagueAPI.fetchSettings()
+        ]);
+        if (cloudT.length > 0) setTeams(cloudT);
+        if (cloudM.length > 0) setMatches(cloudM);
+        if (cloudS) setLeagueSettings(cloudS);
+      } catch (e) {
+        console.warn('Cloud sync unavailable');
+      } finally {
+        setIsSyncing(false);
+      }
     };
-    initData();
+    boot();
   }, []);
 
   useEffect(() => {
     if (isLoaded) {
-      localStorage.setItem('lp_teams', JSON.stringify(teams));
-      localStorage.setItem('lp_matches', JSON.stringify(matches));
-      localStorage.setItem('lp_role', role);
-      if (selectedTeamId) localStorage.setItem('lp_selectedTeam', selectedTeamId);
-      else localStorage.removeItem('lp_selectedTeam');
+      localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(teams));
+      localStorage.setItem(STORAGE_KEYS.MATCHES, JSON.stringify(matches));
+      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(leagueSettings));
+      if (role !== UserRole.PUBLIC) {
+        localStorage.setItem(STORAGE_KEYS.SESSION, JSON.stringify({ role, teamId: selectedTeamId }));
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.SESSION);
+      }
     }
-  }, [teams, matches, role, selectedTeamId, isLoaded]);
+  }, [teams, matches, leagueSettings, role, selectedTeamId, isLoaded]);
 
   const standings = useMemo(() => {
     const table: Record<string, Standing> = {};
@@ -133,19 +188,41 @@ const App: React.FC = () => {
     return Object.values(table).sort((a, b) => b.points !== a.points ? b.points - a.points : b.goalDifference !== a.goalDifference ? b.goalDifference - a.goalDifference : b.goalsFor - a.goalsFor);
   }, [teams, matches]);
 
+  const updateLeagueSettings = async (settings: LeagueSettings) => {
+    setLeagueSettings(settings);
+    try {
+      await LeagueAPI.saveSettings(settings);
+    } catch (e) { console.warn('Saved locally'); }
+  };
+
   const addTeam = async (teamData: Omit<Team, 'id' | 'players'>) => {
     const newTeam: Team = { ...teamData, id: `t${Date.now()}`, players: [] };
-    setTeams(prev => [...prev, newTeam]);
-    await LeagueAPI.saveTeam(newTeam);
-    // If admin added the team, we stay on current view or go to admin
+    const updated = [...teams, newTeam];
+    setTeams(updated);
+    try {
+      await LeagueAPI.saveTeam(newTeam);
+    } catch (e) { console.warn('Saved locally'); }
     if (role !== UserRole.ADMIN) setView('standings');
   };
 
-  const updateMatch = async (matchId: string, hScore: number, aScore: number, scorers?: GoalScorer[], cards?: CardEvent[]) => {
-    const updatedMatches = matches.map(m => m.id === matchId ? { ...m, homeScore: hScore, awayScore: aScore, scorers: scorers || m.scorers, cards: cards || m.cards, isCompleted: true } : m);
+  const updateMatch = async (matchId: string, hScore: number, aScore: number, scorers?: GoalScorer[], cards?: CardEvent[], refereeName?: string) => {
+    const updatedMatches = matches.map(m => m.id === matchId ? { 
+      ...m, 
+      homeScore: hScore, 
+      awayScore: aScore, 
+      scorers: scorers || m.scorers, 
+      cards: cards || m.cards, 
+      refereeName: refereeName !== undefined ? refereeName : m.refereeName,
+      isCompleted: true 
+    } : m);
     setMatches(updatedMatches);
+    
     const match = updatedMatches.find(m => m.id === matchId);
-    if (match) await LeagueAPI.updateMatch(match);
+    if (match) {
+      try {
+        await LeagueAPI.saveMatch(match);
+      } catch (e) { console.warn('Saved locally'); }
+    }
 
     if (scorers) {
       setTeams(prevTeams => {
@@ -156,34 +233,58 @@ const App: React.FC = () => {
           });
           return { ...team, players: updatedPlayers };
         });
-        newTeams.forEach(t => LeagueAPI.saveTeam(t));
+        newTeams.forEach(t => LeagueAPI.saveTeam(t).catch(() => {}));
         return newTeams;
       });
     }
   };
 
   const updatePlayers = async (teamId: string, players: Player[]) => {
-    setTeams(prev => {
-      const newTeams = prev.map(t => t.id === teamId ? { ...t, players } : t);
-      const updated = newTeams.find(t => t.id === teamId);
-      if (updated) LeagueAPI.saveTeam(updated);
-      return newTeams;
-    });
+    const updatedTeams = teams.map(t => t.id === teamId ? { ...t, players } : t);
+    setTeams(updatedTeams);
+    const team = updatedTeams.find(t => t.id === teamId);
+    if (team) {
+      try {
+        await LeagueAPI.saveTeam(team);
+      } catch (e) { console.warn('Saved locally'); }
+    }
+  };
+
+  const importLeagueState = (data: { teams: Team[], matches: Match[], settings?: LeagueSettings, users?: any[] }) => {
+    if (data.teams) setTeams(data.teams);
+    if (data.matches) setMatches(data.matches);
+    if (data.settings) setLeagueSettings(data.settings);
+    alert('League data imported successfully!');
+  };
+
+  const handleLogin = (r: UserRole, tid?: string) => {
+    setRole(r);
+    setSelectedTeamId(tid || null);
+    setView('dashboard');
   };
 
   if (!isLoaded) return <div className="h-screen w-full flex items-center justify-center bg-gray-50 text-blue-600"><i className="fas fa-circle-notch fa-spin text-4xl"></i></div>;
 
   return (
     <div className="min-h-screen flex flex-col selection:bg-blue-100 selection:text-blue-900">
-      <Navbar currentView={view} setView={setView} role={role} onLogout={() => { setRole(UserRole.PUBLIC); setSelectedTeamId(null); setView('dashboard'); }} selectedTeamId={selectedTeamId} teams={teams} />
+      <Navbar 
+        currentView={view} 
+        setView={setView} 
+        role={role} 
+        onLogout={() => { setRole(UserRole.PUBLIC); setSelectedTeamId(null); localStorage.removeItem(STORAGE_KEYS.SESSION); setView('dashboard'); }} 
+        selectedTeamId={selectedTeamId} 
+        teams={teams} 
+        isSyncing={isSyncing}
+        leagueSettings={leagueSettings}
+      />
       <main className="flex-1 container mx-auto px-4 py-8 max-width-6xl">
         {(() => {
           switch (view) {
-            case 'login': return <ErrorBoundary componentName="Login Module"><Login teams={teams} onLogin={(r, tid) => { setRole(r); if (tid) setSelectedTeamId(tid); setView('dashboard'); }} onBack={() => setView('dashboard')} loginFn={LeagueAPI.login} /></ErrorBoundary>;
-            case 'dashboard': return <ErrorBoundary componentName="Dashboard"><Dashboard teams={teams} matches={matches} standings={standings} setView={setView} /></ErrorBoundary>;
-            case 'standings': return <ErrorBoundary componentName="Standings Table"><StandingsTable standings={standings} teams={teams} /></ErrorBoundary>;
+            case 'login': return <ErrorBoundary componentName="Login Module"><Login teams={teams} onLogin={handleLogin} onBack={() => setView('dashboard')} loginFn={LeagueAPI.login} /></ErrorBoundary>;
+            case 'dashboard': return <ErrorBoundary componentName="Dashboard"><Dashboard teams={teams} matches={matches} standings={standings} setView={setView} leagueSettings={leagueSettings} /></ErrorBoundary>;
+            case 'standings': return <ErrorBoundary componentName="Standings Table"><StandingsTable standings={standings} teams={teams} leagueSettings={leagueSettings} /></ErrorBoundary>;
             case 'registration': return <ErrorBoundary componentName="Team Registration"><TeamRegistration onRegister={addTeam} existingNames={teams.map(t => t.name)} /></ErrorBoundary>;
-            case 'schedule': return <ErrorBoundary componentName="Fixture Scheduler"><MatchScheduler matches={matches} teams={teams} isAdmin={role === UserRole.ADMIN} role={role} selectedTeamId={selectedTeamId} onAddMatch={(m) => setMatches([...matches, m])} onUpdateMatch={updateMatch} /></ErrorBoundary>;
+            case 'schedule': return <ErrorBoundary componentName="Fixture Scheduler"><MatchScheduler matches={matches} teams={teams} isAdmin={role === UserRole.ADMIN} role={role} selectedTeamId={selectedTeamId} onAddMatch={(m) => setMatches([...matches, m])} onUpdateMatch={updateMatch} leagueSettings={leagueSettings} /></ErrorBoundary>;
             case 'players':
               const teamToManage = teams.find(t => t.id === selectedTeamId);
               return teamToManage ? (
@@ -201,16 +302,29 @@ const App: React.FC = () => {
                 <ErrorBoundary componentName="Administrative Control Panel">
                   <AdminPanel 
                     teams={teams} 
-                    matches={matches} 
+                    matches={matches}
+                    leagueSettings={leagueSettings}
+                    onUpdateLeagueSettings={updateLeagueSettings}
                     onUpdateMatch={updateMatch} 
-                    onUpdateTeam={(updated) => setTeams(teams.map(t => t.id === updated.id ? updated : t))}
+                    onUpdateTeam={(updated) => {
+                      const updatedTeams = teams.map(t => t.id === updated.id ? updated : t);
+                      setTeams(updatedTeams);
+                      LeagueAPI.saveTeam(updated).catch(() => {});
+                    }}
                     onRegisterTeam={addTeam}
                     onManageSquad={(tid) => { setSelectedTeamId(tid); setView('players'); }}
-                    onReset={() => { setTeams(INITIAL_TEAMS); setMatches(INITIAL_MATCHES); }} 
+                    onReset={() => { 
+                      if(confirm('This will wipe all local data. Continue?')) {
+                        setTeams(INITIAL_TEAMS); 
+                        setMatches(INITIAL_MATCHES); 
+                        setLeagueSettings(DEFAULT_LEAGUE_SETTINGS);
+                      }
+                    }} 
+                    onImportState={importLeagueState}
                   />
                 </ErrorBoundary>
               ) : null;
-            default: return <ErrorBoundary componentName="Dashboard"><Dashboard teams={teams} matches={matches} standings={standings} setView={setView} /></ErrorBoundary>;
+            default: return <ErrorBoundary componentName="Dashboard"><Dashboard teams={teams} matches={matches} standings={standings} setView={setView} leagueSettings={leagueSettings} /></ErrorBoundary>;
           }
         })()}
       </main>
