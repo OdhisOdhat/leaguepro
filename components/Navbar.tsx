@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { UserRole, Team } from '../types';
+import { UserRole, Team, LeagueSettings } from '../types';
 
 interface NavbarProps {
   currentView: string;
@@ -9,20 +9,26 @@ interface NavbarProps {
   onLogout: () => void;
   selectedTeamId: string | null;
   teams: Team[];
+  isSyncing?: boolean;
+  leagueSettings: LeagueSettings;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ currentView, setView, role, onLogout, selectedTeamId, teams }) => {
+const Navbar: React.FC<NavbarProps> = ({ currentView, setView, role, onLogout, selectedTeamId, teams, isSyncing, leagueSettings }) => {
   const managedTeam = teams.find(t => t.id === selectedTeamId);
 
   return (
     <nav className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-50">
       <div className="container mx-auto px-4 flex flex-col md:flex-row justify-between items-center h-auto md:h-16 py-3 md:py-0">
         <div className="flex items-center space-x-2 cursor-pointer" onClick={() => setView('dashboard')}>
-          <div className="bg-blue-600 p-2 rounded-lg">
-            <i className="fas fa-trophy text-white text-xl"></i>
-          </div>
+          {leagueSettings.logo ? (
+            <img src={leagueSettings.logo} alt="" className="w-10 h-10 object-contain rounded-lg" />
+          ) : (
+            <div className="bg-blue-600 p-2 rounded-lg">
+              <i className="fas fa-trophy text-white text-xl"></i>
+            </div>
+          )}
           <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
-            LeaguePro
+            {leagueSettings.name}
           </span>
         </div>
 
@@ -45,6 +51,13 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, setView, role, onLogout, s
         </div>
 
         <div className="flex items-center space-x-4 mt-4 md:mt-0">
+          <div className={`hidden lg:flex items-center space-x-2 px-3 py-1.5 rounded-full border transition-colors ${isSyncing ? 'bg-amber-50 border-amber-100' : 'bg-green-50 border-green-100'}`}>
+            <div className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-amber-500 animate-spin' : 'bg-green-500 animate-pulse'}`}></div>
+            <span className={`text-[10px] font-black uppercase tracking-widest ${isSyncing ? 'text-amber-700' : 'text-green-700'}`}>
+              {isSyncing ? 'Turso Cloud Sync' : 'Turso Data Active'}
+            </span>
+          </div>
+
           {role === UserRole.PUBLIC ? (
             <button
               onClick={() => setView('login')}
@@ -57,10 +70,10 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, setView, role, onLogout, s
             <div className="flex items-center space-x-3">
               <div className="text-right hidden sm:block">
                 <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest leading-none">
-                  {role === UserRole.ADMIN ? 'Admin Session' : 'Manager Session'}
+                  {role === UserRole.ADMIN ? 'Admin Session' : role === UserRole.GUEST ? 'Social Guest' : 'Manager Session'}
                 </p>
                 <p className="text-xs font-bold text-gray-700 truncate max-w-[120px]">
-                  {role === UserRole.ADMIN ? 'System Administrator' : managedTeam?.name}
+                  {role === UserRole.ADMIN ? 'System Administrator' : role === UserRole.GUEST ? 'Authenticated Viewer' : managedTeam?.name}
                 </p>
               </div>
               <button
