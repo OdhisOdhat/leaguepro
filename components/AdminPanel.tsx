@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Team, Match, GoalScorer, UserRole, LeagueSettings } from '../types';
-import TeamRegistration from './TeamRegistration';
+import { Team, Match, GoalScorer, UserRole, LeagueSettings } from '../types.ts';
+import TeamRegistration from './TeamRegistration.tsx';
 
 interface User {
   id: string;
@@ -41,7 +41,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   const [showAddStaff, setShowAddStaff] = useState(false);
   const [newStaff, setNewStaff] = useState({ username: '', password: '', role: UserRole.TEAM_MANAGER, teamId: '' });
   
-  // Collapsible state
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     branding: true,
     data: false,
@@ -175,54 +174,29 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
 
   return (
     <div className="space-y-6 pb-20 animate-in fade-in duration-500 max-w-5xl mx-auto px-2">
-      
-      {/* 1. League Branding & Settings - Reordered: Fields first, Logo last */}
       <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-gray-100 shadow-xl overflow-hidden">
         <SectionHeader title="League Identity" icon="fa-id-card" sectionKey="branding" />
-        
         {expandedSections.branding && (
           <form onSubmit={handleSaveSettings} className="animate-in slide-in-from-top-2 duration-300 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">League Name</label>
-                <input 
-                  required
-                  className="w-full border border-gray-100 bg-gray-50 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none"
-                  value={settingsForm.name}
-                  onChange={e => setSettingsForm({...settingsForm, name: e.target.value})}
-                />
+                <input required className="w-full border border-gray-100 bg-gray-50 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" value={settingsForm.name} onChange={e => setSettingsForm({...settingsForm, name: e.target.value})} />
               </div>
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Season</label>
-                <input 
-                  required
-                  className="w-full border border-gray-100 bg-gray-50 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none"
-                  value={settingsForm.season}
-                  onChange={e => setSettingsForm({...settingsForm, season: e.target.value})}
-                />
+                <input required className="w-full border border-gray-100 bg-gray-50 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" value={settingsForm.season} onChange={e => setSettingsForm({...settingsForm, season: e.target.value})} />
               </div>
             </div>
-            
             <div className="space-y-1">
               <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Welcome Message</label>
-              <textarea 
-                rows={3}
-                className="w-full border border-gray-100 bg-gray-50 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-                value={settingsForm.description}
-                onChange={e => setSettingsForm({...settingsForm, description: e.target.value})}
-              />
+              <textarea rows={3} className="w-full border border-gray-100 bg-gray-50 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none resize-none" value={settingsForm.description} onChange={e => setSettingsForm({...settingsForm, description: e.target.value})} />
             </div>
-
             <div className="space-y-2">
               <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">League Branding (Logo)</label>
               <div className="flex items-center space-x-6 bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                <div 
-                  onClick={() => logoInputRef.current?.click()}
-                  className="w-24 h-24 rounded-2xl bg-white border-2 border-dashed border-gray-200 flex items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all group overflow-hidden relative shadow-sm"
-                >
-                  {logoPreview ? (
-                    <img src={logoPreview} className="w-full h-full object-contain p-2" alt="League Logo" />
-                  ) : (
+                <div onClick={() => logoInputRef.current?.click()} className="w-24 h-24 rounded-2xl bg-white border-2 border-dashed border-gray-200 flex items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all group overflow-hidden relative shadow-sm">
+                  {logoPreview ? <img src={logoPreview} className="w-full h-full object-contain p-2" alt="League Logo" /> : (
                     <div className="text-center p-2">
                       <i className="fas fa-camera text-xl text-gray-300 mb-1"></i>
                       <p className="text-[8px] font-black text-gray-400 uppercase tracking-tighter">Add Logo</p>
@@ -235,29 +209,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                 <div className="flex-1 text-xs text-gray-500 font-medium">
                   <p className="font-bold text-gray-700 mb-1">Upload Your Badge</p>
                   <p>Transparent PNG or JPG recommended. Max size 2MB.</p>
-                  <button 
-                    type="button"
-                    onClick={() => logoInputRef.current?.click()}
-                    className="mt-2 text-blue-600 font-black uppercase text-[9px] tracking-widest hover:text-blue-800"
-                  >
-                    Select File
-                  </button>
+                  <button type="button" onClick={() => logoInputRef.current?.click()} className="mt-2 text-blue-600 font-black uppercase text-[9px] tracking-widest hover:text-blue-800">Select File</button>
                 </div>
                 <input type="file" ref={logoInputRef} className="hidden" accept="image/*" onChange={handleLogoUpload} />
               </div>
             </div>
-
-            <button 
-              type="submit"
-              className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-[0.98]"
-            >
-              Update League Identity
-            </button>
+            <button type="submit" className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-[0.98]">Update League Identity</button>
           </form>
         )}
       </div>
 
-      {/* 2. Data & Persistence */}
       <div className="bg-indigo-900 rounded-[2rem] p-6 text-white shadow-2xl relative overflow-hidden transition-all">
         <div className="flex justify-between items-center cursor-pointer mb-2" onClick={() => toggleSection('data')}>
           <div className="flex items-center space-x-3">
@@ -268,64 +229,32 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
             <i className="fas fa-chevron-down"></i>
           </div>
         </div>
-        
         {expandedSections.data && (
           <div className="relative z-10 space-y-4 animate-in slide-in-from-top-2 duration-300">
-            <p className="text-indigo-200 text-[11px] font-medium max-w-lg leading-relaxed">
-              Managing local persistence. Export your league regularly to ensure data safety across devices.
-            </p>
+            <p className="text-indigo-200 text-[11px] font-medium max-w-lg leading-relaxed">Managing local persistence. Export your league regularly to ensure data safety across devices.</p>
             <div className="flex flex-wrap gap-3">
-              <button 
-                onClick={exportLeagueData}
-                className="bg-white text-indigo-900 px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-50 transition-all flex items-center space-x-2"
-              >
-                <i className="fas fa-download"></i>
-                <span>Export JSON</span>
-              </button>
-              <button 
-                onClick={() => importFileRef.current?.click()}
-                className="bg-indigo-500 text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-600 transition-all flex items-center space-x-2 border border-indigo-400"
-              >
-                <i className="fas fa-upload"></i>
-                <span>Import JSON</span>
-              </button>
+              <button onClick={exportLeagueData} className="bg-white text-indigo-900 px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-50 transition-all flex items-center space-x-2"><i className="fas fa-download"></i><span>Export JSON</span></button>
+              <button onClick={() => importFileRef.current?.click()} className="bg-indigo-500 text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-600 transition-all flex items-center space-x-2 border border-indigo-400"><i className="fas fa-upload"></i><span>Import JSON</span></button>
               <input type="file" ref={importFileRef} className="hidden" accept=".json" onChange={handleImport} />
-              
-              <button 
-                onClick={onReset}
-                className="ml-auto bg-red-500/20 text-red-100 border border-red-500/30 px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-500 transition-all"
-              >
-                Factory Reset
-              </button>
+              <button onClick={onReset} className="ml-auto bg-red-500/20 text-red-100 border border-red-500/30 px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-500 transition-all">Factory Reset</button>
             </div>
           </div>
         )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        {/* 3. Team Management */}
         <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col">
           <div className="flex justify-between items-center mb-6">
             <SectionHeader title={`Active Teams (${teams.length})`} icon="fa-shield-alt" sectionKey="members" />
-            <button 
-              onClick={() => setShowRegisterModal(true)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[9px] font-black shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all uppercase tracking-widest -mt-4"
-            >
-              Add Team
-            </button>
+            <button onClick={() => setShowRegisterModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[9px] font-black shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all uppercase tracking-widest -mt-4">Add Team</button>
           </div>
-          
           {expandedSections.members && (
             <div className="space-y-3 max-h-[340px] overflow-y-auto pr-2 custom-scrollbar animate-in slide-in-from-top-2 duration-300">
               {teams.map(team => (
                 <div key={team.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl hover:bg-white hover:shadow-md transition-all group border border-transparent hover:border-blue-50">
                   <div className="flex items-center space-x-3">
                     <img src={team.logo} className="w-10 h-10 rounded-xl object-cover shadow-sm bg-white" alt="" />
-                    <div>
-                      <p className="font-black text-gray-900 text-xs leading-none mb-1">{team.name}</p>
-                      <p className="text-[9px] font-bold text-gray-400 uppercase">{team.manager} • {team.players.length} Squad</p>
-                    </div>
+                    <div><p className="font-black text-gray-900 text-xs leading-none mb-1">{team.name}</p><p className="text-[9px] font-bold text-gray-400 uppercase">{team.manager} • {team.players.length} Squad</p></div>
                   </div>
                   <div className="flex space-x-1">
                     <button onClick={() => setEditingTeam(team)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"><i className="fas fa-edit text-xs"></i></button>
@@ -336,19 +265,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           )}
         </div>
-
-        {/* 4. Staffing Controls */}
         <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col">
           <div className="flex justify-between items-center mb-6">
             <SectionHeader title="Staff Access" icon="fa-user-lock" sectionKey="staff" />
-            <button 
-              onClick={() => setShowAddStaff(true)}
-              className="bg-indigo-50 text-indigo-600 p-2 rounded-lg hover:bg-indigo-600 hover:text-white transition-all -mt-4"
-            >
-              <i className="fas fa-plus text-xs"></i>
-            </button>
+            <button onClick={() => setShowAddStaff(true)} className="bg-indigo-50 text-indigo-600 p-2 rounded-lg hover:bg-indigo-600 hover:text-white transition-all -mt-4"><i className="fas fa-plus text-xs"></i></button>
           </div>
-
           {expandedSections.staff && (
             <div className="space-y-3 max-h-[340px] overflow-y-auto pr-2 custom-scrollbar animate-in slide-in-from-top-2 duration-300">
               {staff.map(user => {
@@ -356,126 +277,21 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                 return (
                   <div key={user.id} className="flex items-center justify-between p-3 bg-indigo-50/20 rounded-2xl border border-indigo-50/50">
                     <div className="flex items-center space-x-3">
-                      <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center text-indigo-500 shadow-sm">
-                        <i className={`fas ${user.role === UserRole.ADMIN ? 'fa-user-shield text-xs' : 'fa-user-tie text-xs'}`}></i>
-                      </div>
-                      <div>
-                        <p className="font-black text-gray-900 text-xs leading-none mb-1">{user.username}</p>
-                        <span className="text-[8px] font-black text-indigo-400 uppercase tracking-widest">
-                          {user.role === UserRole.ADMIN ? 'Admin' : userTeam?.name || 'Manager'}
-                        </span>
-                      </div>
+                      <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center text-indigo-500 shadow-sm"><i className={`fas ${user.role === UserRole.ADMIN ? 'fa-user-shield text-xs' : 'fa-user-tie text-xs'}`}></i></div>
+                      <div><p className="font-black text-gray-900 text-xs leading-none mb-1">{user.username}</p><span className="text-[8px] font-black text-indigo-400 uppercase tracking-widest">{user.role === UserRole.ADMIN ? 'Admin' : userTeam?.name || 'Manager'}</span></div>
                     </div>
-                    {user.id !== 'u-admin' && (
-                      <button onClick={() => removeStaff(user.id)} className="text-red-300 hover:text-red-500 p-2 transition-colors"><i className="fas fa-user-minus text-xs"></i></button>
-                    )}
+                    {user.id !== 'u-admin' && <button onClick={() => removeStaff(user.id)} className="text-red-300 hover:text-red-500 p-2 transition-colors"><i className="fas fa-user-minus text-xs"></i></button>}
                   </div>
                 );
               })}
             </div>
           )}
         </div>
-
-        {/* 5. Match History Overrides */}
-        <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm lg:col-span-2">
-          <SectionHeader title="Result Overrides" icon="fa-history" sectionKey="history" />
-          
-          {expandedSections.history && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[340px] overflow-y-auto pr-2 custom-scrollbar animate-in slide-in-from-top-2 duration-300">
-              {matches.filter(m => m.isCompleted).length > 0 ? (
-                matches.filter(m => m.isCompleted).map(match => (
-                  <div key={match.id} className="p-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-3">
-                    <div className="flex justify-between items-center text-[10px] font-black uppercase">
-                      <span className="text-blue-500">Week {match.matchWeek}</span>
-                      <input 
-                        type="text"
-                        placeholder="Assign Referee..."
-                        className="bg-white border border-gray-100 rounded px-2 py-1 outline-none text-[9px] w-24 text-right"
-                        defaultValue={match.refereeName}
-                        onBlur={(e) => onUpdateMatch(match.id, match.homeScore || 0, match.awayScore || 0, undefined, undefined, e.target.value)}
-                      />
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <p className="font-bold text-gray-900 truncate text-[11px] w-1/3 text-right">{teams.find(t => t.id === match.homeTeamId)?.name}</p>
-                      <div className="flex space-x-2 items-center px-4">
-                        <input type="number" min="0" className="w-9 text-center bg-white rounded border border-gray-200 font-black py-1 text-xs" defaultValue={match.homeScore} onBlur={(e) => onUpdateMatch(match.id, parseInt(e.target.value) || 0, match.awayScore || 0)} />
-                        <span className="text-gray-300">-</span>
-                        <input type="number" min="0" className="w-9 text-center bg-white rounded border border-gray-200 font-black py-1 text-xs" defaultValue={match.awayScore} onBlur={(e) => onUpdateMatch(match.id, match.homeScore || 0, parseInt(e.target.value) || 0)} />
-                      </div>
-                      <p className="font-bold text-gray-900 truncate text-[11px] w-1/3">{teams.find(t => t.id === match.awayTeamId)?.name}</p>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="col-span-full text-center py-10 text-gray-300 italic text-xs">No completed matches found.</div>
-              )}
-            </div>
-          )}
-        </div>
       </div>
 
-      {/* MODALS (Kept as modals for focus) */}
-      {showRegisterModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl border border-gray-100 overflow-hidden animate-in zoom-in-95 duration-300">
-            <TeamRegistration 
-              existingNames={teams.map(t => t.name)}
-              onRegister={(t) => { onRegisterTeam(t); setShowRegisterModal(false); }}
-              onCancel={() => setShowRegisterModal(false)}
-            />
-          </div>
-        </div>
-      )}
-
-      {showAddStaff && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 space-y-6">
-            <h3 className="text-2xl font-black text-gray-900">Add League Staff</h3>
-            <form onSubmit={addStaff} className="space-y-4">
-              <input 
-                required
-                className="w-full border border-gray-100 bg-gray-50 rounded-xl px-4 py-3 font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
-                placeholder="Username"
-                value={newStaff.username}
-                onChange={e => setNewStaff({...newStaff, username: e.target.value})}
-              />
-              <input 
-                required
-                type="password"
-                className="w-full border border-gray-100 bg-gray-50 rounded-xl px-4 py-3 font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
-                placeholder="Password"
-                value={newStaff.password}
-                onChange={e => setNewStaff({...newStaff, password: e.target.value})}
-              />
-              <select 
-                className="w-full border border-gray-100 bg-gray-50 rounded-xl px-4 py-3 font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
-                value={newStaff.teamId}
-                onChange={e => setNewStaff({...newStaff, teamId: e.target.value})}
-              >
-                <option value="">Full Admin (No Team)</option>
-                {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
-              <div className="flex space-x-3 pt-4">
-                <button type="submit" className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-indigo-700 shadow-lg shadow-indigo-100">Admit Staff</button>
-                <button type="button" onClick={() => setShowAddStaff(false)} className="px-6 bg-gray-100 text-gray-500 py-3 rounded-xl font-bold uppercase text-xs">Cancel</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {editingTeam && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl border border-gray-100 overflow-hidden animate-in zoom-in-95 duration-300">
-            <TeamRegistration 
-              initialData={editingTeam}
-              existingNames={teams.map(t => t.name)}
-              onRegister={handleTeamOverride}
-              onCancel={() => setEditingTeam(null)}
-            />
-          </div>
-        </div>
-      )}
+      {showRegisterModal && <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm animate-in fade-in duration-300"><div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl border border-gray-100 overflow-hidden animate-in zoom-in-95 duration-300"><TeamRegistration existingNames={teams.map(t => t.name)} onRegister={(t) => { onRegisterTeam(t); setShowRegisterModal(false); }} onCancel={() => setShowRegisterModal(false)} /></div></div>}
+      {showAddStaff && <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm animate-in fade-in duration-300"><div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 space-y-6"><h3 className="text-2xl font-black text-gray-900">Add League Staff</h3><form onSubmit={addStaff} className="space-y-4"><input required className="w-full border border-gray-100 bg-gray-50 rounded-xl px-4 py-3 font-bold focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Username" value={newStaff.username} onChange={e => setNewStaff({...newStaff, username: e.target.value})} /><input required type="password" className="w-full border border-gray-100 bg-gray-50 rounded-xl px-4 py-3 font-bold focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Password" value={newStaff.password} onChange={e => setNewStaff({...newStaff, password: e.target.value})} /><select className="w-full border border-gray-100 bg-gray-50 rounded-xl px-4 py-3 font-bold focus:ring-2 focus:ring-indigo-500 outline-none" value={newStaff.teamId} onChange={e => setNewStaff({...newStaff, teamId: e.target.value})}><option value="">Full Admin (No Team)</option>{teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select><div className="flex space-x-3 pt-4"><button type="submit" className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-indigo-700 shadow-lg shadow-indigo-100">Admit Staff</button><button type="button" onClick={() => setShowAddStaff(false)} className="px-6 bg-gray-100 text-gray-500 py-3 rounded-xl font-bold uppercase text-xs">Cancel</button></div></form></div></div>}
+      {editingTeam && <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm animate-in fade-in duration-300"><div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl border border-gray-100 overflow-hidden animate-in zoom-in-95 duration-300"><TeamRegistration initialData={editingTeam} existingNames={teams.map(t => t.name)} onRegister={handleTeamOverride} onCancel={() => setEditingTeam(null)} /></div></div>}
     </div>
   );
 };
