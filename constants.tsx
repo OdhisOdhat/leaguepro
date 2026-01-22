@@ -1,7 +1,14 @@
 
-import { Team, Match } from './types';
+import { Team, Match, LeagueSettings } from './types';
 
 export const MAX_SQUAD_SIZE = 30;
+
+export const DEFAULT_LEAGUE_SETTINGS: LeagueSettings = {
+  name: 'LeaguePro',
+  season: 'Season 2024',
+  logo: '',
+  description: 'A comprehensive digital league management application for sports teams.'
+};
 
 export const INITIAL_TEAMS: Team[] = [
   {
