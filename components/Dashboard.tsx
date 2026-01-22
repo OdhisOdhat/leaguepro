@@ -1,15 +1,16 @@
 
 import React from 'react';
-import { Team, Match, Standing } from '../types';
+import { Team, Match, Standing, LeagueSettings } from '../types';
 
 interface DashboardProps {
   teams: Team[];
   matches: Match[];
   standings: Standing[];
   setView: (v: string) => void;
+  leagueSettings: LeagueSettings;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ teams, matches, standings, setView }) => {
+const Dashboard: React.FC<DashboardProps> = ({ teams, matches, standings, setView, leagueSettings }) => {
   const upcomingMatches = matches
     .filter(m => !m.isCompleted)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -23,9 +24,12 @@ const Dashboard: React.FC<DashboardProps> = ({ teams, matches, standings, setVie
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-700 to-indigo-900 p-8 text-white shadow-2xl">
         <div className="relative z-10 flex flex-col md:flex-row justify-between items-center">
-          <div className="text-center md:text-left space-y-2">
-            <h1 className="text-4xl font-black tracking-tight">Welcome to LeaguePro</h1>
-            <p className="text-blue-100 text-lg opacity-90">Manage your season, track your stats, and lead your team to glory.</p>
+          <div className="text-center md:text-left space-y-2 flex-1">
+            <h1 className="text-4xl font-black tracking-tight flex items-center justify-center md:justify-start">
+              {leagueSettings.logo && <img src={leagueSettings.logo} className="h-12 mr-4" alt="" />}
+              Welcome to {leagueSettings.name}
+            </h1>
+            <p className="text-blue-100 text-lg opacity-90 max-w-2xl">{leagueSettings.description}</p>
             <div className="pt-4 flex flex-wrap gap-3 justify-center md:justify-start">
               <button 
                 onClick={() => setView('registration')}
