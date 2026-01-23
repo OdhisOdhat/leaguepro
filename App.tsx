@@ -221,50 +221,52 @@ const App: React.FC = () => {
       )}
 
       <main className="flex-1 container mx-auto px-4 py-8 max-width-6xl">
-        {(() => {
-          switch (view) {
-            case 'login': return <Login teams={teams} onLogin={(r, t) => { setRole(r); setSelectedTeamId(t || null); setView('dashboard'); }} onBack={() => setView('dashboard')} loginFn={dbService.login} />;
-            case 'dashboard': return <Dashboard teams={teams} matches={matches} standings={standings} setView={setView} leagueSettings={leagueSettings} />;
-            case 'standings': return <StandingsTable standings={standings} teams={teams} leagueSettings={leagueSettings} />;
-            case 'registration': return <TeamRegistration onRegister={(tData) => { 
-                const newTeam = { ...tData, id: `t${Date.now()}`, players: [] };
-                setTeams(p => [...p, newTeam]);
-                dbService.saveTeam(newTeam).catch(() => {});
-                setView('standings');
-              }} existingNames={teams.map(t => t.name)} />;
-            case 'schedule': return <MatchScheduler 
-              matches={matches} teams={teams} isAdmin={role === UserRole.ADMIN} role={role} 
-              selectedTeamId={selectedTeamId} onAddMatch={(m) => { setMatches(p => [...p, m]); dbService.saveMatch(m).catch(() => {}); }} 
-              onUpdateMatch={(id, h, a, sc, c, r) => {
-                const updated = matches.map(m => m.id === id ? { ...m, homeScore: h, awayScore: a, scorers: sc, cards: c, refereeName: r, isCompleted: true } : m);
-                setMatches(updated);
-                const m = updated.find(u => u.id === id);
-                if (m) dbService.saveMatch(m).catch(() => {});
-              }} 
-              leagueSettings={leagueSettings} 
-            />;
-            case 'admin': return <AdminPanel 
-              teams={teams} matches={matches} leagueSettings={leagueSettings}
-              onUpdateLeagueSettings={(s) => { setLeagueSettings(s); dbService.saveSettings(s).catch(() => {}); }}
-              onUpdateMatch={() => {}} 
-              onUpdateTeam={(t) => { setTeams(p => p.map(u => u.id === t.id ? t : u)); dbService.saveTeam(t).catch(() => {}); }}
-              onRegisterTeam={() => {}} 
-              onManageSquad={(tid) => { setSelectedTeamId(tid); setView('players'); }}
-              onReset={() => { if(confirm('Reset local data?')) { setTeams(INITIAL_TEAMS); setMatches(INITIAL_MATCHES); } }} 
-              onImportState={() => {}}
-              dbLogs={dbLogs}
-              onForceSync={forcePushToCloud}
-            />;
-            case 'players':
-              const teamToManage = teams.find(t => t.id === selectedTeamId);
-              return teamToManage ? <PlayerManager team={teamToManage} onUpdate={(p) => { 
-                const updated = { ...teamToManage, players: p };
-                setTeams(teams.map(t => t.id === teamToManage.id ? updated : t));
-                dbService.saveTeam(updated).catch(() => {});
-              }} onBack={() => setView(role === UserRole.ADMIN ? 'admin' : 'dashboard')} isAdminOverride={role === UserRole.ADMIN} /> : null;
-            default: return <Dashboard teams={teams} matches={matches} standings={standings} setView={setView} leagueSettings={leagueSettings} />;
-          }
-        })()}
+        <ErrorBoundary componentName={`View: ${view}`}>
+          {(() => {
+            switch (view) {
+              case 'login': return <Login teams={teams} onLogin={(r, t) => { setRole(r); setSelectedTeamId(t || null); setView('dashboard'); }} onBack={() => setView('dashboard')} loginFn={dbService.login} />;
+              case 'dashboard': return <Dashboard teams={teams} matches={matches} standings={standings} setView={setView} leagueSettings={leagueSettings} />;
+              case 'standings': return <StandingsTable standings={standings} teams={teams} leagueSettings={leagueSettings} />;
+              case 'registration': return <TeamRegistration onRegister={(tData) => { 
+                  const newTeam = { ...tData, id: `t${Date.now()}`, players: [] };
+                  setTeams(p => [...p, newTeam]);
+                  dbService.saveTeam(newTeam).catch(() => {});
+                  setView('standings');
+                }} existingNames={teams.map(t => t.name)} />;
+              case 'schedule': return <MatchScheduler 
+                matches={matches} teams={teams} isAdmin={role === UserRole.ADMIN} role={role} 
+                selectedTeamId={selectedTeamId} onAddMatch={(m) => { setMatches(p => [...p, m]); dbService.saveMatch(m).catch(() => {}); }} 
+                onUpdateMatch={(id, h, a, sc, c, r) => {
+                  const updated = matches.map(m => m.id === id ? { ...m, homeScore: h, awayScore: a, scorers: sc, cards: c, refereeName: r, isCompleted: true } : m);
+                  setMatches(updated);
+                  const m = updated.find(u => u.id === id);
+                  if (m) dbService.saveMatch(m).catch(() => {});
+                }} 
+                leagueSettings={leagueSettings} 
+              />;
+              case 'admin': return <AdminPanel 
+                teams={teams} matches={matches} leagueSettings={leagueSettings}
+                onUpdateLeagueSettings={(s) => { setLeagueSettings(s); dbService.saveSettings(s).catch(() => {}); }}
+                onUpdateMatch={() => {}} 
+                onUpdateTeam={(t) => { setTeams(p => p.map(u => u.id === t.id ? t : u)); dbService.saveTeam(t).catch(() => {}); }}
+                onRegisterTeam={() => {}} 
+                onManageSquad={(tid) => { setSelectedTeamId(tid); setView('players'); }}
+                onReset={() => { if(confirm('Reset local data?')) { setTeams(INITIAL_TEAMS); setMatches(INITIAL_MATCHES); } }} 
+                onImportState={() => {}}
+                dbLogs={dbLogs}
+                onForceSync={forcePushToCloud}
+              />;
+              case 'players':
+                const teamToManage = teams.find(t => t.id === selectedTeamId);
+                return teamToManage ? <PlayerManager team={teamToManage} onUpdate={(p) => { 
+                  const updated = { ...teamToManage, players: p };
+                  setTeams(teams.map(t => t.id === teamToManage.id ? updated : t));
+                  dbService.saveTeam(updated).catch(() => {});
+                }} onBack={() => setView(role === UserRole.ADMIN ? 'admin' : 'dashboard')} isAdminOverride={role === UserRole.ADMIN} /> : null;
+              default: return <Dashboard teams={teams} matches={matches} standings={standings} setView={setView} leagueSettings={leagueSettings} />;
+            }
+          })()}
+        </ErrorBoundary>
       </main>
       <style>{`@keyframes progress { 0% { left: -30%; } 100% { left: 100%; } }`}</style>
     </div>
