@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { UserRole, Team, LeagueSettings } from '../types.ts';
 
