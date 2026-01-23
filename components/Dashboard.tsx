@@ -14,21 +14,39 @@ interface DashboardProps {
   selectedTeamId?: string | null;
 }
 
+const HERO_IMAGES = [
+  'https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=2000&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=2000&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1552667466-07770ae110d0?q=80&w=2000&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1511886929837-354d827aae26?q=80&w=2000&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1517466787929-bc90951d0974?q=80&w=2000&auto=format&fit=crop'
+];
+
 const Dashboard: React.FC<DashboardProps> = ({ 
   teams, matches, standings, news, ads, setView, leagueSettings, role, selectedTeamId 
 }) => {
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
   const [currentAdIdx, setCurrentAdIdx] = useState(0);
+  const [currentHeroIdx, setCurrentHeroIdx] = useState(0);
 
   const activeAds = ads.filter(a => a.isActive);
 
   useEffect(() => {
+    const heroInterval = setInterval(() => {
+      setCurrentHeroIdx(prev => (prev + 1) % HERO_IMAGES.length);
+    }, 6000);
+
+    let adInterval: any;
     if (activeAds.length > 1) {
-      const interval = setInterval(() => {
+      adInterval = setInterval(() => {
         setCurrentAdIdx(prev => (prev + 1) % activeAds.length);
       }, 5000);
-      return () => clearInterval(interval);
     }
+
+    return () => {
+      clearInterval(heroInterval);
+      if (adInterval) clearInterval(adInterval);
+    };
   }, [activeAds.length]);
 
   const upcomingMatches = matches
@@ -51,101 +69,127 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="space-y-16 animate-in fade-in duration-500 pb-20">
-      {/* Hero Section - Ads retained at the top */}
-      <div className={`relative overflow-hidden rounded-[3rem] p-8 md:p-12 text-white shadow-2xl transition-all duration-700 ${
-        isManagerWithoutTeam 
-          ? 'bg-gradient-to-br from-indigo-600 via-blue-700 to-blue-900 ring-8 ring-blue-50' 
-          : 'bg-gradient-to-br from-blue-700 to-indigo-900'
+      {/* Hero Section with Image Carousel */}
+      <div className={`relative overflow-hidden rounded-[3rem] shadow-2xl transition-all duration-700 min-h-[500px] flex items-center ${
+        isManagerWithoutTeam ? 'ring-8 ring-blue-50' : ''
       }`}>
-        <div className="relative z-10 flex flex-col lg:flex-row justify-between items-center gap-8">
-          <div className="text-center md:text-left space-y-4 flex-1">
-            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm mb-2">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
-              </span>
-              <span className="text-[10px] font-black uppercase tracking-widest text-blue-100">League Live • {leagueSettings.season}</span>
-            </div>
+        {/* Carousel Background */}
+        {HERO_IMAGES.map((img, idx) => (
+          <div 
+            key={idx}
+            className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${idx === currentHeroIdx ? 'opacity-100' : 'opacity-0'}`}
+          >
+            <img src={img} className="w-full h-full object-cover scale-110 animate-slow-zoom" alt="" />
+            <div className={`absolute inset-0 bg-gradient-to-br ${
+              isManagerWithoutTeam 
+                ? 'from-indigo-900/90 via-blue-800/80 to-blue-900/90' 
+                : 'from-blue-900/90 via-blue-800/70 to-indigo-900/90'
+            }`}></div>
+          </div>
+        ))}
 
-            <h1 className="text-4xl md:text-6xl font-black tracking-tight leading-[1.1]">
-              {isManagerWithoutTeam ? (
-                <>Ready to lead your <span className="text-blue-300">own squad?</span></>
-              ) : (
-                <>Welcome to <span className="text-blue-300">{leagueSettings.name}</span></>
-              )}
-            </h1>
+        <div className="relative z-10 w-full p-8 md:p-12 text-white">
+          <div className="flex flex-col lg:flex-row justify-between items-center gap-8">
+            <div className="text-center md:text-left space-y-4 flex-1">
+              <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 backdrop-blur-md mb-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                </span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-blue-100">League Live • {leagueSettings.season}</span>
+              </div>
 
-            <p className="text-blue-100 text-lg opacity-90 max-w-2xl leading-relaxed">
-              {isManagerWithoutTeam 
-                ? "You've successfully joined as a manager. The next step is to register your club and begin building your championship-winning squad." 
-                : leagueSettings.description}
-            </p>
+              <h1 className="text-4xl md:text-6xl font-black tracking-tight leading-[1.1] drop-shadow-lg">
+                {isManagerWithoutTeam ? (
+                  <>Ready to lead your <span className="text-blue-300">own squad?</span></>
+                ) : (
+                  <>Welcome to <span className="text-blue-300">{leagueSettings.name}</span></>
+                )}
+              </h1>
 
-            <div className="pt-4 flex flex-wrap gap-4 justify-center md:justify-start">
-              {isManagerWithoutTeam ? (
-                <button 
-                  onClick={() => setView('registration')}
-                  className="bg-white text-blue-700 px-10 py-4 rounded-[1.5rem] font-black uppercase text-xs tracking-[0.2em] hover:bg-blue-50 transition-all shadow-2xl hover:scale-105 active:scale-95 flex items-center space-x-3"
-                >
-                  <i className="fas fa-plus-circle text-lg"></i>
-                  <span>Register My Team Now</span>
-                </button>
-              ) : (
-                <>
+              <p className="text-blue-50 text-lg opacity-90 max-w-2xl leading-relaxed drop-shadow-md">
+                {isManagerWithoutTeam 
+                  ? "You've successfully joined as a manager. The next step is to register your club and begin building your championship-winning squad." 
+                  : leagueSettings.description}
+              </p>
+
+              <div className="pt-4 flex flex-wrap gap-4 justify-center md:justify-start">
+                {isManagerWithoutTeam ? (
                   <button 
                     onClick={() => setView('registration')}
-                    className="bg-white text-blue-700 px-8 py-4 rounded-[1.5rem] font-black uppercase text-xs tracking-widest hover:bg-blue-50 transition-all shadow-xl"
+                    className="bg-white text-blue-700 px-10 py-4 rounded-[1.5rem] font-black uppercase text-xs tracking-[0.2em] hover:bg-blue-50 transition-all shadow-2xl hover:scale-105 active:scale-95 flex items-center space-x-3"
                   >
-                    Register a Team
+                    <i className="fas fa-plus-circle text-lg"></i>
+                    <span>Register My Team Now</span>
                   </button>
-                  <button 
-                    onClick={() => setView('schedule')}
-                    className="bg-blue-600/30 backdrop-blur border border-blue-400/30 text-white px-8 py-4 rounded-[1.5rem] font-black uppercase text-xs tracking-widest hover:bg-blue-600/50 transition-all"
-                  >
-                    View Fixtures
-                  </button>
-                </>
-              )}
+                ) : (
+                  <>
+                    <button 
+                      onClick={() => setView('registration')}
+                      className="bg-white text-blue-700 px-8 py-4 rounded-[1.5rem] font-black uppercase text-xs tracking-widest hover:bg-blue-50 transition-all shadow-xl hover:scale-105 active:scale-95"
+                    >
+                      Register a Team
+                    </button>
+                    <button 
+                      onClick={() => setView('schedule')}
+                      className="bg-blue-600/30 backdrop-blur border border-white/30 text-white px-8 py-4 rounded-[1.5rem] font-black uppercase text-xs tracking-widest hover:bg-blue-600/50 transition-all"
+                    >
+                      View Fixtures
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Ad Space in Hero */}
+            <div className="w-full lg:w-1/3 flex flex-col space-y-4">
+               {activeAds.length > 0 ? (
+                 <a 
+                  href={activeAds[currentAdIdx].linkUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="group relative block bg-white/10 backdrop-blur-xl border border-white/20 rounded-[2rem] p-4 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-500"
+                 >
+                   <div className="absolute top-3 right-3 z-20 bg-blue-500 text-white px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest shadow-lg">Sponsored</div>
+                   <div className="flex items-center space-x-4">
+                      <div className="w-24 h-24 rounded-2xl overflow-hidden bg-white/10 flex-shrink-0">
+                         <img src={activeAds[currentAdIdx].imageUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="" />
+                      </div>
+                      <div className="space-y-1">
+                         <h4 className="text-sm font-black text-white group-hover:text-blue-300 transition-colors line-clamp-1">{activeAds[currentAdIdx].title}</h4>
+                         <p className="text-[10px] text-blue-100/70 line-clamp-3 leading-relaxed">{activeAds[currentAdIdx].description}</p>
+                         <div className="text-[8px] font-black text-blue-300 uppercase tracking-widest flex items-center mt-2">
+                            Learn More <i className="fas fa-arrow-right ml-1 text-[6px]"></i>
+                         </div>
+                      </div>
+                   </div>
+                   {activeAds.length > 1 && (
+                     <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex space-x-1">
+                        {activeAds.map((_, i) => (
+                          <div key={i} className={`h-1 rounded-full transition-all ${i === currentAdIdx ? 'w-4 bg-blue-400' : 'w-1 bg-white/20'}`}></div>
+                        ))}
+                     </div>
+                   )}
+                 </a>
+               ) : (
+                 <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-8 rounded-[3rem] shadow-2xl flex flex-col items-center justify-center space-y-4 text-white/30">
+                    <i className="fas fa-bullhorn text-4xl"></i>
+                    <p className="text-[8px] font-black uppercase tracking-[0.3em]">Sponsorship Space Available</p>
+                 </div>
+               )}
             </div>
           </div>
+        </div>
 
-          {/* Ad Space in Hero */}
-          <div className="w-full lg:w-1/3 flex flex-col space-y-4">
-             {activeAds.length > 0 ? (
-               <a 
-                href={activeAds[currentAdIdx].linkUrl} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="group relative block bg-white/5 backdrop-blur-xl border border-white/10 rounded-[2rem] p-4 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-500"
-               >
-                 <div className="absolute top-3 right-3 z-20 bg-blue-500 text-white px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest shadow-lg">Sponsored</div>
-                 <div className="flex items-center space-x-4">
-                    <div className="w-24 h-24 rounded-2xl overflow-hidden bg-white/10 flex-shrink-0">
-                       <img src={activeAds[currentAdIdx].imageUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="" />
-                    </div>
-                    <div className="space-y-1">
-                       <h4 className="text-sm font-black text-white group-hover:text-blue-300 transition-colors line-clamp-1">{activeAds[currentAdIdx].title}</h4>
-                       <p className="text-[10px] text-blue-100/70 line-clamp-3 leading-relaxed">{activeAds[currentAdIdx].description}</p>
-                       <div className="text-[8px] font-black text-blue-300 uppercase tracking-widest flex items-center mt-2">
-                          Learn More <i className="fas fa-arrow-right ml-1 text-[6px]"></i>
-                       </div>
-                    </div>
-                 </div>
-                 {activeAds.length > 1 && (
-                   <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex space-x-1">
-                      {activeAds.map((_, i) => (
-                        <div key={i} className={`h-1 rounded-full transition-all ${i === currentAdIdx ? 'w-4 bg-blue-400' : 'w-1 bg-white/20'}`}></div>
-                      ))}
-                   </div>
-                 )}
-               </a>
-             ) : (
-               <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-[3rem] shadow-2xl flex flex-col items-center justify-center space-y-4 text-white/20">
-                  <i className="fas fa-bullhorn text-4xl"></i>
-                  <p className="text-[8px] font-black uppercase tracking-[0.3em]">Sponsorship Space Available</p>
-               </div>
-             )}
-          </div>
+        {/* Carousel Indicators */}
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex space-x-2 z-20">
+          {HERO_IMAGES.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => setCurrentHeroIdx(idx)}
+              className={`w-2 h-2 rounded-full transition-all ${idx === currentHeroIdx ? 'w-8 bg-blue-400' : 'bg-white/40 hover:bg-white/60'}`}
+            />
+          ))}
         </div>
       </div>
 
@@ -243,7 +287,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      {/* League News Section - Moved to the absolute bottom */}
+      {/* League News Section */}
       {news.length > 0 && (
         <div className="space-y-6 pt-8 border-t border-gray-100">
           <div className="flex justify-between items-center px-4">
@@ -330,6 +374,15 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
       )}
+      <style>{`
+        @keyframes slow-zoom {
+          from { transform: scale(1); }
+          to { transform: scale(1.1); }
+        }
+        .animate-slow-zoom {
+          animation: slow-zoom 20s linear infinite alternate;
+        }
+      `}</style>
     </div>
   );
 };
