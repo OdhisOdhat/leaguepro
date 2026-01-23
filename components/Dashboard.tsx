@@ -41,8 +41,16 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const getTeam = (id: string) => teams.find(t => t.id === id);
 
+  const externalLeagues = [
+    { name: 'English Premier League', icon: 'fa-england', color: 'bg-purple-600', link: 'https://www.premierleague.com', logo: '🏴󠁧󠁢󠁥󠁮󠁧󠁿' },
+    { name: 'Bundesliga', icon: 'fa-germany', color: 'bg-red-600', link: 'https://www.bundesliga.com', logo: '🇩🇪' },
+    { name: 'Ligue 1', icon: 'fa-france', color: 'bg-blue-500', link: 'https://www.ligue1.com', logo: '🇫🇷' },
+    { name: 'UEFA Champions League', icon: 'fa-star', color: 'bg-indigo-900', link: 'https://www.uefa.com/uefachampionsleague/', logo: '⭐' },
+    { name: 'Kenya Premier League', icon: 'fa-africa', color: 'bg-green-600', link: 'https://fkfpremierleague.com', logo: '🇰🇪' },
+  ];
+
   return (
-    <div className="space-y-12 animate-in fade-in duration-500 pb-12">
+    <div className="space-y-16 animate-in fade-in duration-500 pb-20">
       {/* Hero Section - Keeps the Ad Space */}
       <div className={`relative overflow-hidden rounded-[3rem] p-8 md:p-12 text-white shadow-2xl transition-all duration-700 ${
         isManagerWithoutTeam 
@@ -160,6 +168,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               <div className="flex flex-col items-center justify-center py-8 md:py-0 w-full md:w-1/3">
                 <div className="bg-white px-6 py-2 rounded-full shadow-sm border border-gray-100 mb-4 text-xs font-black text-blue-600 uppercase tracking-[0.3em]">VS</div>
                 <div className="text-4xl font-black text-gray-900 tracking-tighter">{nextMatch.time}</div>
+                {/* Fix: Changed 'match.date' to 'nextMatch.date' as 'match' was undefined in this scope. */}
                 <div className="text-[10px] text-gray-400 font-black uppercase tracking-widest mt-2">{new Date(nextMatch.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}</div>
               </div>
 
@@ -209,7 +218,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      {/* League News Section - Moved to bottom */}
+      {/* League News Section */}
       {news.length > 0 && (
         <div className="space-y-6 pt-8 border-t border-gray-100">
           <div className="flex justify-between items-center px-4">
@@ -246,6 +255,34 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
       )}
+
+      {/* Follow Other Leagues Section - Added as requested */}
+      <div className="space-y-8 pt-8 border-t border-gray-100">
+        <div className="flex flex-col items-center text-center space-y-2">
+           <h3 className="text-3xl font-black text-gray-900 tracking-tight">Global Football Hub</h3>
+           <p className="text-gray-500 text-sm font-medium">Follow live scores and updates from other major championships.</p>
+        </div>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          {externalLeagues.map((league, idx) => (
+            <a 
+              key={idx} 
+              href={league.link} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="group bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm hover:shadow-xl hover:border-blue-100 transition-all flex flex-col items-center text-center space-y-4"
+            >
+              <div className={`w-16 h-16 rounded-[1.5rem] ${league.color} flex items-center justify-center text-3xl shadow-lg group-hover:scale-110 transition-transform duration-500`}>
+                {league.logo}
+              </div>
+              <div className="space-y-1">
+                 <h4 className="text-xs font-black text-gray-900 uppercase tracking-widest leading-tight">{league.name}</h4>
+                 <div className="text-[8px] font-bold text-blue-500 uppercase tracking-[0.2em] group-hover:translate-y-1 transition-transform">View Live Data <i className="fas fa-external-link-alt ml-1"></i></div>
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
 
       {/* News Reader Modal */}
       {selectedNews && (
