@@ -50,6 +50,8 @@ export interface Match {
   cards?: CardEvent[];
   isCompleted: boolean;
   matchWeek: number;
+  refereeName?: string;
+  refereeGrade?: string;
 }
 
 export interface Standing {
@@ -65,8 +67,16 @@ export interface Standing {
   points: number;
 }
 
+export interface LeagueSettings {
+  name: string;
+  season: string;
+  logo: string;
+  description: string;
+}
+
 export enum UserRole {
   PUBLIC = 'PUBLIC',
+  GUEST = 'GUEST',
   TEAM_MANAGER = 'TEAM_MANAGER',
   ADMIN = 'ADMIN'
 }
