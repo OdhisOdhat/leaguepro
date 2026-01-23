@@ -1,12 +1,13 @@
 
-import React, { useState } from 'https://esm.sh/react@19.0.0';
-import { Team, Match, Standing, LeagueSettings, UserRole, NewsItem } from '../types.ts';
+import React, { useState, useEffect } from 'https://esm.sh/react@19.0.0';
+import { Team, Match, Standing, LeagueSettings, UserRole, NewsItem, Ad } from '../types.ts';
 
 interface DashboardProps {
   teams: Team[];
   matches: Match[];
   standings: Standing[];
   news: NewsItem[];
+  ads: Ad[];
   setView: (v: string) => void;
   leagueSettings: LeagueSettings;
   role?: UserRole;
@@ -14,9 +15,21 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
-  teams, matches, standings, news, setView, leagueSettings, role, selectedTeamId 
+  teams, matches, standings, news, ads, setView, leagueSettings, role, selectedTeamId 
 }) => {
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
+  const [currentAdIdx, setCurrentAdIdx] = useState(0);
+
+  const activeAds = ads.filter(a => a.isActive);
+
+  useEffect(() => {
+    if (activeAds.length > 1) {
+      const interval = setInterval(() => {
+        setCurrentAdIdx(prev => (prev + 1) % activeAds.length);
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [activeAds.length]);
 
   const upcomingMatches = matches
     .filter(m => !m.isCompleted)
@@ -36,7 +49,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           ? 'bg-gradient-to-br from-indigo-600 via-blue-700 to-blue-900 ring-8 ring-blue-50' 
           : 'bg-gradient-to-br from-blue-700 to-indigo-900'
       }`}>
-        <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-8">
+        <div className="relative z-10 flex flex-col lg:flex-row justify-between items-center gap-8">
           <div className="text-center md:text-left space-y-4 flex-1">
             <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm mb-2">
               <span className="relative flex h-2 w-2">
@@ -87,12 +100,43 @@ const Dashboard: React.FC<DashboardProps> = ({
               )}
             </div>
           </div>
-          <div className="hidden lg:block relative">
-             <div className="absolute inset-0 bg-blue-400 blur-[100px] opacity-20 animate-pulse"></div>
-             <i className="fas fa-trophy text-[180px] text-white/10 absolute -top-20 -right-10 rotate-12"></i>
-             <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-[3rem] shadow-2xl transform hover:rotate-2 transition-transform duration-500">
-                <i className="fas fa-shield-alt text-8xl text-blue-300/40"></i>
-             </div>
+
+          {/* Ad Space in Hero */}
+          <div className="w-full lg:w-1/3 flex flex-col space-y-4">
+             {activeAds.length > 0 ? (
+               <a 
+                href={activeAds[currentAdIdx].linkUrl} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="group relative block bg-white/5 backdrop-blur-xl border border-white/10 rounded-[2rem] p-4 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-500"
+               >
+                 <div className="absolute top-3 right-3 z-20 bg-blue-500 text-white px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest shadow-lg">Sponsored</div>
+                 <div className="flex items-center space-x-4">
+                    <div className="w-24 h-24 rounded-2xl overflow-hidden bg-white/10 flex-shrink-0">
+                       <img src={activeAds[currentAdIdx].imageUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="" />
+                    </div>
+                    <div className="space-y-1">
+                       <h4 className="text-sm font-black text-white group-hover:text-blue-300 transition-colors line-clamp-1">{activeAds[currentAdIdx].title}</h4>
+                       <p className="text-[10px] text-blue-100/70 line-clamp-3 leading-relaxed">{activeAds[currentAdIdx].description}</p>
+                       <div className="text-[8px] font-black text-blue-300 uppercase tracking-widest flex items-center mt-2">
+                          Learn More <i className="fas fa-arrow-right ml-1 text-[6px]"></i>
+                       </div>
+                    </div>
+                 </div>
+                 {activeAds.length > 1 && (
+                   <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex space-x-1">
+                      {activeAds.map((_, i) => (
+                        <div key={i} className={`h-1 rounded-full transition-all ${i === currentAdIdx ? 'w-4 bg-blue-400' : 'w-1 bg-white/20'}`}></div>
+                      ))}
+                   </div>
+                 )}
+               </a>
+             ) : (
+               <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-[3rem] shadow-2xl flex flex-col items-center justify-center space-y-4 text-white/20">
+                  <i className="fas fa-bullhorn text-4xl"></i>
+                  <p className="text-[8px] font-black uppercase tracking-[0.3em]">Sponsorship Space Available</p>
+               </div>
+             )}
           </div>
         </div>
       </div>
