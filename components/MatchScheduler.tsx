@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+
+import React, { useState, useMemo } from 'https://esm.sh/react@19.0.0';
 import { Match, Team, UserRole, GoalScorer, Player, CardEvent, LeagueSettings } from '../types.ts';
 
 interface MatchSchedulerProps {
