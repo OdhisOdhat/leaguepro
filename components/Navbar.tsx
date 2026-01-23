@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { UserRole, Team, LeagueSettings } from '../types';
+import { UserRole, Team, LeagueSettings } from '../types.ts';
 
 interface NavbarProps {
   currentView: string;
