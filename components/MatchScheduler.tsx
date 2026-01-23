@@ -9,7 +9,7 @@ interface MatchSchedulerProps {
   role: UserRole;
   selectedTeamId: string | null;
   onAddMatch: (m: Match) => void;
-  onUpdateMatch: (id: string, h: number, a: number, scorers: GoalScorer[], cards?: CardEvent[], refereeName?: string) => void;
+  onUpdateMatch: (id: string, h: number, a: number, scorers: GoalScorer[], cards?: CardEvent[], refereeName?: string, refereeGrade?: string) => void;
   leagueSettings: LeagueSettings;
 }
 
@@ -30,6 +30,8 @@ const MatchScheduler: React.FC<MatchSchedulerProps> = ({
   const [currentScorers, setCurrentScorers] = useState<GoalScorer[]>([]);
   const [currentCards, setCurrentCards] = useState<CardEvent[]>([]);
   const [currentReferee, setCurrentReferee] = useState('');
+  const [currentRefereeGrade, setCurrentRefereeGrade] = useState('');
+  const [manualScorerNames, setManualScorerNames] = useState<Record<string, string>>({});
   
   const [newMatch, setNewMatch] = useState<Partial<Match>>({
     date: '',
@@ -38,7 +40,8 @@ const MatchScheduler: React.FC<MatchSchedulerProps> = ({
     homeTeamId: '',
     awayTeamId: '',
     matchWeek: 1,
-    refereeName: ''
+    refereeName: '',
+    refereeGrade: ''
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -50,6 +53,16 @@ const MatchScheduler: React.FC<MatchSchedulerProps> = ({
         isCompleted: false
       });
       setShowAdd(false);
+      setNewMatch({
+        date: '',
+        time: '',
+        venue: '',
+        homeTeamId: '',
+        awayTeamId: '',
+        matchWeek: 1,
+        refereeName: '',
+        refereeGrade: ''
+      });
     }
   };
 
@@ -70,6 +83,8 @@ const MatchScheduler: React.FC<MatchSchedulerProps> = ({
     setCurrentScorers(match.scorers || []);
     setCurrentCards(match.cards || []);
     setCurrentReferee(match.refereeName || '');
+    setCurrentRefereeGrade(match.refereeGrade || '');
+    setManualScorerNames({});
   };
 
   const addGoal = (player: Player, teamId: string) => {
@@ -81,6 +96,22 @@ const MatchScheduler: React.FC<MatchSchedulerProps> = ({
       goals: 1, 
       minute 
     }].sort((a, b) => a.minute - b.minute));
+  };
+
+  const addManualGoal = (teamId: string) => {
+    const name = manualScorerNames[teamId];
+    if (!name || !name.trim()) return;
+    
+    const minute = currentScorers.length > 0 ? Math.min(90, currentScorers[currentScorers.length - 1].minute + 5) : 10;
+    setCurrentScorers([...currentScorers, { 
+      playerId: `manual-${Date.now()}`, 
+      playerName: name.trim(), 
+      teamId, 
+      goals: 1, 
+      minute 
+    }].sort((a, b) => a.minute - b.minute));
+    
+    setManualScorerNames(prev => ({ ...prev, [teamId]: '' }));
   };
 
   const addCard = (player: Player, teamId: string, type: 'yellow' | 'red') => {
@@ -106,7 +137,7 @@ const MatchScheduler: React.FC<MatchSchedulerProps> = ({
   };
 
   const saveResult = (match: Match) => {
-    onUpdateMatch(match.id, scores.home, scores.away, currentScorers, currentCards, currentReferee);
+    onUpdateMatch(match.id, scores.home, scores.away, currentScorers, currentCards, currentReferee, currentRefereeGrade);
     setEditingMatchId(null);
   };
 
@@ -151,7 +182,7 @@ const MatchScheduler: React.FC<MatchSchedulerProps> = ({
         <form onSubmit={handleSubmit} className="bg-white p-8 rounded-3xl border border-blue-100 shadow-2xl grid grid-cols-1 md:grid-cols-3 gap-6 animate-in slide-in-from-top-4 duration-300">
           <div className="space-y-2">
             <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Home Team</label>
-            <select required className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50" value={newMatch.homeTeamId} onChange={e => setNewMatch({ ...newMatch, homeTeamId: e.target.value })}>
+            <select required className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 font-bold" value={newMatch.homeTeamId} onChange={e => setNewMatch({ ...newMatch, homeTeamId: e.target.value })}>
               <option value="">Select Home</option>
               {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
@@ -161,7 +192,7 @@ const MatchScheduler: React.FC<MatchSchedulerProps> = ({
           </div>
           <div className="space-y-2">
             <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Away Team</label>
-            <select required className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50" value={newMatch.awayTeamId} onChange={e => setNewMatch({ ...newMatch, awayTeamId: e.target.value })}>
+            <select required className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 font-bold" value={newMatch.awayTeamId} onChange={e => setNewMatch({ ...newMatch, awayTeamId: e.target.value })}>
               <option value="">Select Away</option>
               {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
@@ -169,25 +200,51 @@ const MatchScheduler: React.FC<MatchSchedulerProps> = ({
           <div className="space-y-2">
             <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Date & Time</label>
             <div className="flex space-x-2">
-              <input type="date" required className="flex-1 border border-gray-200 rounded-xl px-4 py-3 bg-gray-50" value={newMatch.date} onChange={e => setNewMatch({ ...newMatch, date: e.target.value })} />
-              <input type="time" required className="w-28 border border-gray-200 rounded-xl px-4 py-3 bg-gray-50" value={newMatch.time} onChange={e => setNewMatch({ ...newMatch, time: e.target.value })} />
+              <input type="date" required className="flex-1 border border-gray-200 rounded-xl px-4 py-3 bg-gray-50 font-bold" value={newMatch.date} onChange={e => setNewMatch({ ...newMatch, date: e.target.value })} />
+              <input type="time" required className="w-28 border border-gray-200 rounded-xl px-4 py-3 bg-gray-50 font-bold" value={newMatch.time} onChange={e => setNewMatch({ ...newMatch, time: e.target.value })} />
             </div>
           </div>
           <div className="space-y-2">
             <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Venue</label>
-            <input type="text" required className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-gray-50" placeholder="Stadium Name" value={newMatch.venue} onChange={e => setNewMatch({ ...newMatch, venue: e.target.value })} />
-          </div>
-          <div className="space-y-2">
-            <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Lead Referee</label>
-            <input type="text" className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500" placeholder="Referee Name" value={newMatch.refereeName} onChange={e => setNewMatch({ ...newMatch, refereeName: e.target.value })} />
+            <input type="text" required className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-gray-50 font-bold" placeholder="Stadium Name" value={newMatch.venue} onChange={e => setNewMatch({ ...newMatch, venue: e.target.value })} />
           </div>
           <div className="space-y-2">
             <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Match Week</label>
-            <input type="number" min="1" required className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="e.g. 1" value={newMatch.matchWeek} onChange={e => setNewMatch({ ...newMatch, matchWeek: parseInt(e.target.value) || 1 })} />
+            <input type="number" min="1" required className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-gray-50 font-bold focus:ring-2 focus:ring-blue-500 outline-none" placeholder="e.g. 1" value={newMatch.matchWeek} onChange={e => setNewMatch({ ...newMatch, matchWeek: parseInt(e.target.value) || 1 })} />
           </div>
-          <div className="flex items-end md:col-span-2">
-            <button type="submit" className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-black hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 uppercase tracking-widest text-sm">
-              Confirm Schedule
+
+          <div className="md:col-span-3 bg-blue-50/30 p-6 rounded-[2rem] border border-dashed border-blue-200 space-y-4">
+            <div className="flex items-center space-x-2">
+              <i className="fas fa-user-tie text-blue-600"></i>
+              <span className="text-xs font-black text-gray-900 uppercase tracking-widest">Assign Match Official (Admin Only)</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Official Name</label>
+                <input 
+                  type="text" 
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-white font-bold outline-none focus:ring-2 focus:ring-blue-500" 
+                  placeholder="Enter Referee Name..." 
+                  value={newMatch.refereeName || ''} 
+                  onChange={e => setNewMatch({ ...newMatch, refereeName: e.target.value })} 
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Official Grade / Class</label>
+                <input 
+                  type="text" 
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-white font-bold outline-none focus:ring-2 focus:ring-blue-500" 
+                  placeholder="e.g. National / FIFA / Grade 1" 
+                  value={newMatch.refereeGrade || ''} 
+                  onChange={e => setNewMatch({ ...newMatch, refereeGrade: e.target.value })} 
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="md:col-span-3 flex justify-end">
+            <button type="submit" className="bg-blue-600 text-white px-10 py-4 rounded-2xl font-black hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 uppercase tracking-widest text-xs">
+              Confirm Schedule & Assign Official
             </button>
           </div>
         </form>
@@ -214,7 +271,11 @@ const MatchScheduler: React.FC<MatchSchedulerProps> = ({
                   <span className="text-lg font-black text-gray-900">{new Date(match.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
                   <div className="flex flex-col">
                     <span className="text-xs text-gray-400 font-medium uppercase tracking-widest">{match.time} • {match.venue}</span>
-                    {match.refereeName && <span className="text-[10px] font-bold text-gray-300 uppercase mt-0.5"><i className="fas fa-bullhorn mr-1"></i> {match.refereeName}</span>}
+                    {match.refereeName && (
+                      <span className="text-[9px] font-black text-blue-400 uppercase mt-1 flex items-center">
+                        <i className="fas fa-user-tie mr-1 text-[8px]"></i> {match.refereeName} {match.refereeGrade && <span className="text-gray-300 ml-1">({match.refereeGrade})</span>}
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -279,18 +340,37 @@ const MatchScheduler: React.FC<MatchSchedulerProps> = ({
 
               {isEditing && (
                 <div className="mt-8 pt-8 border-t border-gray-100 space-y-8 animate-in slide-in-from-bottom-2 duration-300" onClick={e => e.stopPropagation()}>
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                    <div className="flex-1">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Match Official (Referee)</label>
-                      <input 
-                        type="text" 
-                        placeholder="Assign Official..." 
-                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 font-bold focus:ring-2 focus:ring-blue-400 outline-none" 
-                        value={currentReferee} 
-                        onChange={(e) => setCurrentReferee(e.target.value)}
-                      />
+                  {isAdmin && (
+                    <div className="bg-blue-50/50 p-6 rounded-2xl border border-blue-100">
+                      <div className="flex items-center space-x-2 mb-4">
+                        <i className="fas fa-user-shield text-blue-600"></i>
+                        <span className="text-[10px] font-black text-blue-800 uppercase tracking-[0.2em]">Match Official Assignment</span>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Official Name</label>
+                          <input 
+                            type="text" 
+                            placeholder="Assign Official..." 
+                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 font-bold focus:ring-2 focus:ring-blue-400 outline-none" 
+                            value={currentReferee} 
+                            onChange={(e) => setCurrentReferee(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Official Grade</label>
+                          <input 
+                            type="text" 
+                            placeholder="e.g. FIFA / National" 
+                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 font-bold focus:ring-2 focus:ring-blue-400 outline-none" 
+                            value={currentRefereeGrade} 
+                            onChange={(e) => setCurrentRefereeGrade(e.target.value)}
+                          />
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )}
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                     {[match.homeTeamId, match.awayTeamId].map((tId) => {
                       const team = getTeam(tId);
@@ -335,29 +415,57 @@ const MatchScheduler: React.FC<MatchSchedulerProps> = ({
                               </div>
                             ))}
 
-                            <div className="pt-2 flex flex-col space-y-2">
-                              <select className="w-full text-xs font-bold border-2 border-gray-100 rounded-xl p-2 bg-gray-50 outline-none" onChange={(e) => {
-                                const p = team?.players.find(p => p.id === e.target.value);
-                                if (p) addGoal(p, tId);
-                                e.target.value = "";
-                              }}>
-                                <option value="">+ Record Goal Scorer...</option>
-                                {team?.players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                              </select>
-                              <select className="w-full text-xs font-bold border-2 border-gray-100 rounded-xl p-2 bg-gray-50 outline-none" onChange={(e) => {
-                                const [pId, type] = e.target.value.split('|');
-                                const p = team?.players.find(p => p.id === pId);
-                                if (p) addCard(p, tId, type as 'yellow' | 'red');
-                                e.target.value = "";
-                              }}>
-                                <option value="">+ Record Disciplinary Card...</option>
-                                {team?.players.map(p => (
-                                  <React.Fragment key={p.id}>
-                                    <option value={`${p.id}|yellow`}>Yellow Card: {p.name}</option>
-                                    <option value={`${p.id}|red`}>Red Card: {p.name}</option>
-                                  </React.Fragment>
-                                ))}
-                              </select>
+                            <div className="pt-2 flex flex-col space-y-3">
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Registered Squad Selection</label>
+                                <select className="w-full text-xs font-bold border-2 border-gray-100 rounded-xl p-2 bg-gray-50 outline-none" onChange={(e) => {
+                                  const p = team?.players.find(p => p.id === e.target.value);
+                                  if (p) addGoal(p, tId);
+                                  e.target.value = "";
+                                }}>
+                                  <option value="">+ Record Goal Scorer...</option>
+                                  {team?.players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                </select>
+                              </div>
+
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Manual Goal Scorer Entry</label>
+                                <div className="flex space-x-2">
+                                  <input 
+                                    type="text" 
+                                    placeholder="Enter scorer name..." 
+                                    className="flex-1 text-xs font-bold border-2 border-gray-100 rounded-xl p-2 bg-gray-50 outline-none focus:border-blue-300 transition-colors"
+                                    value={manualScorerNames[tId] || ''}
+                                    onChange={(e) => setManualScorerNames(prev => ({ ...prev, [tId]: e.target.value }))}
+                                    onKeyDown={(e) => e.key === 'Enter' && addManualGoal(tId)}
+                                  />
+                                  <button 
+                                    type="button"
+                                    onClick={() => addManualGoal(tId)}
+                                    className="bg-blue-600 text-white w-10 h-10 rounded-xl flex items-center justify-center hover:bg-blue-700 transition-all shadow-md"
+                                  >
+                                    <i className="fas fa-plus text-xs"></i>
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="space-y-1 pt-2">
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Disciplinary Actions</label>
+                                <select className="w-full text-xs font-bold border-2 border-gray-100 rounded-xl p-2 bg-gray-50 outline-none" onChange={(e) => {
+                                  const [pId, type] = e.target.value.split('|');
+                                  const p = team?.players.find(p => p.id === pId);
+                                  if (p) addCard(p, tId, type as 'yellow' | 'red');
+                                  e.target.value = "";
+                                }}>
+                                  <option value="">+ Record Disciplinary Card...</option>
+                                  {team?.players.map(p => (
+                                    <React.Fragment key={p.id}>
+                                      <option value={`${p.id}|yellow`}>Yellow Card: {p.name}</option>
+                                      <option value={`${p.id}|red`}>Red Card: {p.name}</option>
+                                    </React.Fragment>
+                                  ))}
+                                </select>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -388,7 +496,7 @@ const MatchScheduler: React.FC<MatchSchedulerProps> = ({
                 {selectedMatch.refereeName && (
                   <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-white/10 border border-white/10 mt-2">
                     <i className="fas fa-user-tie text-[10px] text-blue-400"></i>
-                    <span className="text-[10px] font-black uppercase tracking-widest">Referee: {selectedMatch.refereeName}</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest">Referee: {selectedMatch.refereeName} {selectedMatch.refereeGrade && `(${selectedMatch.refereeGrade})`}</span>
                   </div>
                 )}
               </div>
