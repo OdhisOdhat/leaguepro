@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'https://esm.sh/react@19.0.0';
 import { createClient } from 'https://esm.sh/@libsql/client@0.17.0/web';
-import { Team, Match, Player, Standing, UserRole, GoalScorer, CardEvent, LeagueSettings } from './types.ts';
+import { Team, Match, Player, Standing, UserRole, GoalScorer, CardEvent, LeagueSettings, NewsItem } from './types.ts';
 import { INITIAL_TEAMS, INITIAL_MATCHES, DEFAULT_LEAGUE_SETTINGS } from './constants.tsx';
 import Dashboard from './components/Dashboard.tsx';
 import TeamRegistration from './components/TeamRegistration.tsx';
@@ -23,7 +23,8 @@ const STORAGE_KEYS = {
   TEAMS: 'lp_teams_v2',
   MATCHES: 'lp_matches_v2',
   SETTINGS: 'lp_settings_v2',
-  SESSION: 'lp_session_v3' // Support userId for manager flows
+  NEWS: 'lp_news_v1',
+  SESSION: 'lp_session_v3'
 };
 
 const db = createClient(TURSO_CONFIG);
@@ -34,6 +35,7 @@ const App: React.FC = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
+  const [news, setNews] = useState<NewsItem[]>([]);
   const [leagueSettings, setLeagueSettings] = useState<LeagueSettings>(DEFAULT_LEAGUE_SETTINGS);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -53,6 +55,7 @@ const App: React.FC = () => {
       try {
         await db.execute(`CREATE TABLE IF NOT EXISTS teams (id TEXT PRIMARY KEY, data TEXT);`);
         await db.execute(`CREATE TABLE IF NOT EXISTS matches (id TEXT PRIMARY KEY, data TEXT);`);
+        await db.execute(`CREATE TABLE IF NOT EXISTS news (id TEXT PRIMARY KEY, data TEXT);`);
         await db.execute(`CREATE TABLE IF NOT EXISTS settings (id TEXT PRIMARY KEY, data TEXT);`);
         await db.execute(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT UNIQUE, password TEXT, role TEXT, teamId TEXT);`);
         addLog('✅ Schema ready');
@@ -62,21 +65,32 @@ const App: React.FC = () => {
       }
     },
     saveTeam: async (team: Team) => {
-      addLog(`Syncing team: ${team.name}`);
       await db.execute({
         sql: "INSERT INTO teams (id, data) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data",
         args: [team.id, JSON.stringify(team)]
       });
     },
     saveMatch: async (match: Match) => {
-      addLog(`Syncing match: ${match.id}`);
       await db.execute({
         sql: "INSERT INTO matches (id, data) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data",
         args: [match.id, JSON.stringify(match)]
       });
     },
+    saveNewsItem: async (item: NewsItem) => {
+      addLog(`Syncing news: ${item.title}`);
+      await db.execute({
+        sql: "INSERT INTO news (id, data) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data",
+        args: [item.id, JSON.stringify(item)]
+      });
+    },
+    deleteNewsItem: async (id: string) => {
+      addLog(`Deleting news item: ${id}`);
+      await db.execute({
+        sql: "DELETE FROM news WHERE id = ?",
+        args: [id]
+      });
+    },
     saveSettings: async (settings: LeagueSettings) => {
-      addLog('Syncing league settings...');
       await db.execute({
         sql: "INSERT INTO settings (id, data) VALUES ('global', ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data",
         args: [JSON.stringify(settings)]
@@ -86,10 +100,12 @@ const App: React.FC = () => {
       addLog('Pulling latest cloud state...');
       const t = await db.execute("SELECT data FROM teams");
       const m = await db.execute("SELECT data FROM matches");
+      const n = await db.execute("SELECT data FROM news");
       const s = await db.execute("SELECT data FROM settings WHERE id = 'global'");
       return {
         teams: t.rows.map(r => JSON.parse(r.data as string)) as Team[],
         matches: m.rows.map(r => JSON.parse(r.data as string)) as Match[],
+        news: n.rows.map(r => JSON.parse(r.data as string)) as NewsItem[],
         settings: s.rows.length > 0 ? JSON.parse(s.rows[0].data as string) as LeagueSettings : null
       };
     },
@@ -116,7 +132,6 @@ const App: React.FC = () => {
       return { id, username, role: UserRole.TEAM_MANAGER, teamId: actualTeamId };
     },
     linkUserToTeam: async (uid: string, tid: string) => {
-      addLog(`Linking user ${uid} to team ${tid}...`);
       await db.execute({
         sql: "UPDATE users SET teamId = ? WHERE id = ?",
         args: [tid, uid]
@@ -130,14 +145,12 @@ const App: React.FC = () => {
       const localT = localStorage.getItem(STORAGE_KEYS.TEAMS);
       const localM = localStorage.getItem(STORAGE_KEYS.MATCHES);
       const localS = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+      const localN = localStorage.getItem(STORAGE_KEYS.NEWS);
       
-      const currentTeams = localT ? JSON.parse(localT) : INITIAL_TEAMS;
-      const currentMatches = localM ? JSON.parse(localM) : INITIAL_MATCHES;
-      const currentSettings = localS ? JSON.parse(localS) : DEFAULT_LEAGUE_SETTINGS;
-
-      setTeams(currentTeams);
-      setMatches(currentMatches);
-      setLeagueSettings(currentSettings);
+      setTeams(localT ? JSON.parse(localT) : INITIAL_TEAMS);
+      setMatches(localM ? JSON.parse(localM) : INITIAL_MATCHES);
+      setLeagueSettings(localS ? JSON.parse(localS) : DEFAULT_LEAGUE_SETTINGS);
+      setNews(localN ? JSON.parse(localN) : []);
 
       const savedSession = localStorage.getItem(STORAGE_KEYS.SESSION);
       if (savedSession) {
@@ -153,21 +166,17 @@ const App: React.FC = () => {
         await dbService.setup();
         const cloudData = await dbService.fetchCloudData();
         
-        if (cloudData.teams.length === 0) {
-          addLog("☁️ Cloud empty - Auto-seeding database...");
-          for (const t of currentTeams) await dbService.saveTeam(t);
-          for (const m of currentMatches) await dbService.saveMatch(m);
-          await dbService.saveSettings(currentSettings);
-          addLog("🏁 Initial seeding complete");
-        } else {
+        if (cloudData.teams.length > 0) {
           setTeams(cloudData.teams);
           setMatches(cloudData.matches);
+          setNews(cloudData.news);
           if (cloudData.settings) setLeagueSettings(cloudData.settings);
           addLog("✅ Cloud sync successful");
+        } else {
+          addLog("☁️ Cloud empty, seeding ignored for news.");
         }
       } catch (e) {
-        setSyncError("Cloud connection failed. Using local storage.");
-        addLog(`❌ Sync Error: ${e instanceof Error ? e.message : 'Unknown'}`);
+        setSyncError("Cloud connection failed.");
       } finally {
         setIsSyncing(false);
       }
@@ -180,17 +189,14 @@ const App: React.FC = () => {
       localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(teams));
       localStorage.setItem(STORAGE_KEYS.MATCHES, JSON.stringify(matches));
       localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(leagueSettings));
+      localStorage.setItem(STORAGE_KEYS.NEWS, JSON.stringify(news));
       if (role !== UserRole.PUBLIC) {
-        localStorage.setItem(STORAGE_KEYS.SESSION, JSON.stringify({ 
-          role, 
-          userId, 
-          teamId: selectedTeamId 
-        }));
+        localStorage.setItem(STORAGE_KEYS.SESSION, JSON.stringify({ role, userId, teamId: selectedTeamId }));
       } else {
         localStorage.removeItem(STORAGE_KEYS.SESSION);
       }
     }
-  }, [teams, matches, leagueSettings, role, selectedTeamId, userId, isLoaded]);
+  }, [teams, matches, leagueSettings, news, role, selectedTeamId, userId, isLoaded]);
 
   const standings = useMemo(() => {
     const table: Record<string, Standing> = {};
@@ -218,15 +224,13 @@ const App: React.FC = () => {
   const forcePushToCloud = async () => {
     try {
       setIsSyncing(true);
-      addLog("Starting manual Cloud Force Push...");
       for (const t of teams) await dbService.saveTeam(t);
       for (const m of matches) await dbService.saveMatch(m);
+      for (const n of news) await dbService.saveNewsItem(n);
       await dbService.saveSettings(leagueSettings);
       addLog("✅ Force Push successful!");
-      setSyncError(null);
     } catch (e) {
       addLog("❌ Force Push failed");
-      setSyncError("Sync failed. Check connection.");
     } finally {
       setIsSyncing(false);
     }
@@ -256,42 +260,24 @@ const App: React.FC = () => {
               case 'login': return (
                 <Login 
                   teams={teams} 
-                  onLogin={(r, t, uid) => { 
-                    setRole(r); 
-                    setSelectedTeamId(t || null); 
-                    setUserId(uid || null);
-                    setView('dashboard'); 
-                  }} 
+                  onLogin={(r, t, uid) => { setRole(r); setSelectedTeamId(t || null); setUserId(uid || null); setView('dashboard'); }} 
                   onBack={() => setView('dashboard')} 
                   loginFn={dbService.login} 
                   registerFn={dbService.register}
                 />
               );
-              case 'dashboard': return (
-                <Dashboard 
-                  teams={teams} 
-                  matches={matches} 
-                  standings={standings} 
-                  setView={setView} 
-                  leagueSettings={leagueSettings} 
-                  role={role} 
-                  selectedTeamId={selectedTeamId} 
-                />
-              );
+              case 'dashboard': return <Dashboard teams={teams} matches={matches} standings={standings} news={news} setView={setView} leagueSettings={leagueSettings} role={role} selectedTeamId={selectedTeamId} />;
               case 'standings': return <StandingsTable standings={standings} teams={teams} leagueSettings={leagueSettings} />;
               case 'registration': return <TeamRegistration onRegister={(tData) => { 
                   const newTeamId = `t${Date.now()}`;
                   const newTeam = { ...tData, id: newTeamId, players: [] };
                   setTeams(p => [...p, newTeam]);
                   dbService.saveTeam(newTeam).catch(() => {});
-                  
-                  // If logged-in Manager with no team, link this new team
                   if (role === UserRole.TEAM_MANAGER && !selectedTeamId && userId) {
                     setSelectedTeamId(newTeamId);
                     dbService.linkUserToTeam(userId, newTeamId).catch(() => {});
                   }
-                  
-                  setView('players'); // Redirect to squad management after registration
+                  setView('players');
                 }} existingNames={teams.map(t => t.name)} />;
               case 'schedule': return <MatchScheduler 
                 matches={matches} teams={teams} isAdmin={role === UserRole.ADMIN} role={role} 
@@ -305,10 +291,20 @@ const App: React.FC = () => {
                 leagueSettings={leagueSettings} 
               />;
               case 'admin': return <AdminPanel 
-                teams={teams} matches={matches} leagueSettings={leagueSettings}
+                teams={teams} matches={matches} news={news} leagueSettings={leagueSettings}
                 onUpdateLeagueSettings={(s) => { setLeagueSettings(s); dbService.saveSettings(s).catch(() => {}); }}
                 onUpdateMatch={() => {}} 
                 onUpdateTeam={(t) => { setTeams(p => p.map(u => u.id === t.id ? t : u)); dbService.saveTeam(t).catch(() => {}); }}
+                onSaveNews={(item) => {
+                  const exists = news.find(n => n.id === item.id);
+                  const updatedNews = exists ? news.map(n => n.id === item.id ? item : n) : [item, ...news];
+                  setNews(updatedNews);
+                  dbService.saveNewsItem(item).catch(() => {});
+                }}
+                onDeleteNews={(id) => {
+                  setNews(news.filter(n => n.id !== id));
+                  dbService.deleteNewsItem(id).catch(() => {});
+                }}
                 onRegisterTeam={() => {}} 
                 onManageSquad={(tid) => { setSelectedTeamId(tid); setView('players'); }}
                 onReset={() => { if(confirm('Reset local data?')) { setTeams(INITIAL_TEAMS); setMatches(INITIAL_MATCHES); } }} 
@@ -323,17 +319,7 @@ const App: React.FC = () => {
                   setTeams(teams.map(t => t.id === teamToManage.id ? updated : t));
                   dbService.saveTeam(updated).catch(() => {});
                 }} onBack={() => setView(role === UserRole.ADMIN ? 'admin' : 'dashboard')} isAdminOverride={role === UserRole.ADMIN} /> : null;
-              default: return (
-                <Dashboard 
-                  teams={teams} 
-                  matches={matches} 
-                  standings={standings} 
-                  setView={setView} 
-                  leagueSettings={leagueSettings} 
-                  role={role} 
-                  selectedTeamId={selectedTeamId} 
-                />
-              );
+              default: return <Dashboard teams={teams} matches={matches} standings={standings} news={news} setView={setView} leagueSettings={leagueSettings} role={role} selectedTeamId={selectedTeamId} />;
             }
           })()}
         </ErrorBoundary>
