@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'https://esm.sh/react@19.0.0';
 import { createClient } from 'https://esm.sh/@libsql/client@0.17.0/web';
-import { Team, Match, Player, Standing, UserRole, GoalScorer, CardEvent, LeagueSettings, NewsItem } from './types.ts';
+import { Team, Match, Player, Standing, UserRole, GoalScorer, CardEvent, LeagueSettings, NewsItem, Ad } from './types.ts';
 import { INITIAL_TEAMS, INITIAL_MATCHES, DEFAULT_LEAGUE_SETTINGS } from './constants.tsx';
 import Dashboard from './components/Dashboard.tsx';
 import TeamRegistration from './components/TeamRegistration.tsx';
@@ -24,6 +24,7 @@ const STORAGE_KEYS = {
   MATCHES: 'lp_matches_v2',
   SETTINGS: 'lp_settings_v2',
   NEWS: 'lp_news_v1',
+  ADS: 'lp_ads_v1',
   SESSION: 'lp_session_v3'
 };
 
@@ -36,6 +37,7 @@ const App: React.FC = () => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [news, setNews] = useState<NewsItem[]>([]);
+  const [ads, setAds] = useState<Ad[]>([]);
   const [leagueSettings, setLeagueSettings] = useState<LeagueSettings>(DEFAULT_LEAGUE_SETTINGS);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -56,6 +58,7 @@ const App: React.FC = () => {
         await db.execute(`CREATE TABLE IF NOT EXISTS teams (id TEXT PRIMARY KEY, data TEXT);`);
         await db.execute(`CREATE TABLE IF NOT EXISTS matches (id TEXT PRIMARY KEY, data TEXT);`);
         await db.execute(`CREATE TABLE IF NOT EXISTS news (id TEXT PRIMARY KEY, data TEXT);`);
+        await db.execute(`CREATE TABLE IF NOT EXISTS ads (id TEXT PRIMARY KEY, data TEXT);`);
         await db.execute(`CREATE TABLE IF NOT EXISTS settings (id TEXT PRIMARY KEY, data TEXT);`);
         await db.execute(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT UNIQUE, password TEXT, role TEXT, teamId TEXT);`);
         addLog('✅ Schema ready');
@@ -77,14 +80,24 @@ const App: React.FC = () => {
       });
     },
     saveNewsItem: async (item: NewsItem) => {
-      addLog(`Syncing news: ${item.title}`);
       await db.execute({
         sql: "INSERT INTO news (id, data) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data",
         args: [item.id, JSON.stringify(item)]
       });
     },
+    saveAd: async (ad: Ad) => {
+      await db.execute({
+        sql: "INSERT INTO ads (id, data) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data",
+        args: [ad.id, JSON.stringify(ad)]
+      });
+    },
+    deleteAd: async (id: string) => {
+      await db.execute({
+        sql: "DELETE FROM ads WHERE id = ?",
+        args: [id]
+      });
+    },
     deleteNewsItem: async (id: string) => {
-      addLog(`Deleting news item: ${id}`);
       await db.execute({
         sql: "DELETE FROM news WHERE id = ?",
         args: [id]
@@ -101,11 +114,13 @@ const App: React.FC = () => {
       const t = await db.execute("SELECT data FROM teams");
       const m = await db.execute("SELECT data FROM matches");
       const n = await db.execute("SELECT data FROM news");
+      const a = await db.execute("SELECT data FROM ads");
       const s = await db.execute("SELECT data FROM settings WHERE id = 'global'");
       return {
         teams: t.rows.map(r => JSON.parse(r.data as string)) as Team[],
         matches: m.rows.map(r => JSON.parse(r.data as string)) as Match[],
         news: n.rows.map(r => JSON.parse(r.data as string)) as NewsItem[],
+        ads: a.rows.map(r => JSON.parse(r.data as string)) as Ad[],
         settings: s.rows.length > 0 ? JSON.parse(s.rows[0].data as string) as LeagueSettings : null
       };
     },
@@ -146,11 +161,13 @@ const App: React.FC = () => {
       const localM = localStorage.getItem(STORAGE_KEYS.MATCHES);
       const localS = localStorage.getItem(STORAGE_KEYS.SETTINGS);
       const localN = localStorage.getItem(STORAGE_KEYS.NEWS);
+      const localA = localStorage.getItem(STORAGE_KEYS.ADS);
       
       setTeams(localT ? JSON.parse(localT) : INITIAL_TEAMS);
       setMatches(localM ? JSON.parse(localM) : INITIAL_MATCHES);
       setLeagueSettings(localS ? JSON.parse(localS) : DEFAULT_LEAGUE_SETTINGS);
       setNews(localN ? JSON.parse(localN) : []);
+      setAds(localA ? JSON.parse(localA) : []);
 
       const savedSession = localStorage.getItem(STORAGE_KEYS.SESSION);
       if (savedSession) {
@@ -170,10 +187,9 @@ const App: React.FC = () => {
           setTeams(cloudData.teams);
           setMatches(cloudData.matches);
           setNews(cloudData.news);
+          setAds(cloudData.ads);
           if (cloudData.settings) setLeagueSettings(cloudData.settings);
           addLog("✅ Cloud sync successful");
-        } else {
-          addLog("☁️ Cloud empty, seeding ignored for news.");
         }
       } catch (e) {
         setSyncError("Cloud connection failed.");
@@ -190,13 +206,14 @@ const App: React.FC = () => {
       localStorage.setItem(STORAGE_KEYS.MATCHES, JSON.stringify(matches));
       localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(leagueSettings));
       localStorage.setItem(STORAGE_KEYS.NEWS, JSON.stringify(news));
+      localStorage.setItem(STORAGE_KEYS.ADS, JSON.stringify(ads));
       if (role !== UserRole.PUBLIC) {
         localStorage.setItem(STORAGE_KEYS.SESSION, JSON.stringify({ role, userId, teamId: selectedTeamId }));
       } else {
         localStorage.removeItem(STORAGE_KEYS.SESSION);
       }
     }
-  }, [teams, matches, leagueSettings, news, role, selectedTeamId, userId, isLoaded]);
+  }, [teams, matches, leagueSettings, news, ads, role, selectedTeamId, userId, isLoaded]);
 
   const standings = useMemo(() => {
     const table: Record<string, Standing> = {};
@@ -227,6 +244,7 @@ const App: React.FC = () => {
       for (const t of teams) await dbService.saveTeam(t);
       for (const m of matches) await dbService.saveMatch(m);
       for (const n of news) await dbService.saveNewsItem(n);
+      for (const a of ads) await dbService.saveAd(a);
       await dbService.saveSettings(leagueSettings);
       addLog("✅ Force Push successful!");
     } catch (e) {
@@ -266,7 +284,7 @@ const App: React.FC = () => {
                   registerFn={dbService.register}
                 />
               );
-              case 'dashboard': return <Dashboard teams={teams} matches={matches} standings={standings} news={news} setView={setView} leagueSettings={leagueSettings} role={role} selectedTeamId={selectedTeamId} />;
+              case 'dashboard': return <Dashboard teams={teams} matches={matches} standings={standings} news={news} ads={ads} setView={setView} leagueSettings={leagueSettings} role={role} selectedTeamId={selectedTeamId} />;
               case 'standings': return <StandingsTable standings={standings} teams={teams} leagueSettings={leagueSettings} />;
               case 'registration': return <TeamRegistration onRegister={(tData) => { 
                   const newTeamId = `t${Date.now()}`;
@@ -291,7 +309,7 @@ const App: React.FC = () => {
                 leagueSettings={leagueSettings} 
               />;
               case 'admin': return <AdminPanel 
-                teams={teams} matches={matches} news={news} leagueSettings={leagueSettings}
+                teams={teams} matches={matches} news={news} ads={ads} leagueSettings={leagueSettings}
                 onUpdateLeagueSettings={(s) => { setLeagueSettings(s); dbService.saveSettings(s).catch(() => {}); }}
                 onUpdateMatch={() => {}} 
                 onUpdateTeam={(t) => { setTeams(p => p.map(u => u.id === t.id ? t : u)); dbService.saveTeam(t).catch(() => {}); }}
@@ -304,6 +322,16 @@ const App: React.FC = () => {
                 onDeleteNews={(id) => {
                   setNews(news.filter(n => n.id !== id));
                   dbService.deleteNewsItem(id).catch(() => {});
+                }}
+                onSaveAd={(ad) => {
+                  const exists = ads.find(a => a.id === ad.id);
+                  const updatedAds = exists ? ads.map(a => a.id === ad.id ? ad : a) : [ad, ...ads];
+                  setAds(updatedAds);
+                  dbService.saveAd(ad).catch(() => {});
+                }}
+                onDeleteAd={(id) => {
+                  setAds(ads.filter(a => a.id !== id));
+                  dbService.deleteAd(id).catch(() => {});
                 }}
                 onRegisterTeam={() => {}} 
                 onManageSquad={(tid) => { setSelectedTeamId(tid); setView('players'); }}
@@ -319,7 +347,7 @@ const App: React.FC = () => {
                   setTeams(teams.map(t => t.id === teamToManage.id ? updated : t));
                   dbService.saveTeam(updated).catch(() => {});
                 }} onBack={() => setView(role === UserRole.ADMIN ? 'admin' : 'dashboard')} isAdminOverride={role === UserRole.ADMIN} /> : null;
-              default: return <Dashboard teams={teams} matches={matches} standings={standings} news={news} setView={setView} leagueSettings={leagueSettings} role={role} selectedTeamId={selectedTeamId} />;
+              default: return <Dashboard teams={teams} matches={matches} standings={standings} news={news} ads={ads} setView={setView} leagueSettings={leagueSettings} role={role} selectedTeamId={selectedTeamId} />;
             }
           })()}
         </ErrorBoundary>
