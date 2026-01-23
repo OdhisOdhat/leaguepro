@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef } from 'https://esm.sh/react@19.0.0';
 import { Player, Team } from '../types.ts';
 import { MAX_SQUAD_SIZE } from '../constants.tsx';
 
