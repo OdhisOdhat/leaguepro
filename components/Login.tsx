@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { UserRole, Team } from '../types';
+import { UserRole, Team } from '../types.ts';
 
 interface LoginProps {
   teams: Team[];
