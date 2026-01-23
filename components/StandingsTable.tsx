@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { Standing, Team, LeagueSettings } from '../types';
+import { Standing, Team, LeagueSettings } from '../types.ts';
 
 interface StandingsTableProps {
   standings: Standing[];
