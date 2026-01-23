@@ -42,8 +42,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   const getTeam = (id: string) => teams.find(t => t.id === id);
 
   return (
-    <div className="space-y-12 animate-in fade-in duration-500">
-      {/* Hero Section */}
+    <div className="space-y-12 animate-in fade-in duration-500 pb-12">
+      {/* Hero Section - Keeps the Ad Space */}
       <div className={`relative overflow-hidden rounded-[3rem] p-8 md:p-12 text-white shadow-2xl transition-all duration-700 ${
         isManagerWithoutTeam 
           ? 'bg-gradient-to-br from-indigo-600 via-blue-700 to-blue-900 ring-8 ring-blue-50' 
@@ -101,7 +101,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             </div>
           </div>
 
-          {/* Ad Space in Hero */}
+          {/* Ad Space in Hero - Retained as requested */}
           <div className="w-full lg:w-1/3 flex flex-col space-y-4">
              {activeAds.length > 0 ? (
                <a 
@@ -141,44 +141,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      {/* League News Section */}
-      {news.length > 0 && (
-        <div className="space-y-6">
-          <div className="flex justify-between items-center px-4">
-            <h3 className="text-2xl font-black text-gray-900 tracking-tight">League Updates & News</h3>
-            <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full uppercase tracking-widest">Latest Posts</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {news.slice(0, 3).map(item => (
-              <div 
-                key={item.id} 
-                onClick={() => setSelectedNews(item)}
-                className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden group hover:shadow-xl transition-all cursor-pointer flex flex-col"
-              >
-                <div className="relative aspect-video overflow-hidden">
-                  <img src={item.imageUrl || 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=1000&auto=format&fit=crop'} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="" />
-                  {item.important && (
-                    <div className="absolute top-4 left-4 bg-red-600 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">
-                      Important
-                    </div>
-                  )}
-                </div>
-                <div className="p-6 space-y-3 flex-1">
-                  <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{new Date(item.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                  <h4 className="text-xl font-black text-gray-900 leading-tight group-hover:text-blue-600 transition-colors">{item.title}</h4>
-                  <p className="text-sm text-gray-500 line-clamp-3 leading-relaxed">{item.content}</p>
-                </div>
-                <div className="p-6 pt-0">
-                  <div className="flex items-center text-xs font-black text-gray-900 uppercase tracking-widest group-hover:translate-x-1 transition-transform">
-                    Read Story <i className="fas fa-arrow-right ml-2 text-blue-500"></i>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
+      {/* Main Stats and Featured Match */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Next Match Card */}
         <div className="lg:col-span-2 bg-white rounded-[3rem] border border-gray-100 shadow-sm p-8 hover:shadow-xl transition-all">
@@ -245,6 +208,44 @@ const Dashboard: React.FC<DashboardProps> = ({
           </button>
         </div>
       </div>
+
+      {/* League News Section - Moved to bottom */}
+      {news.length > 0 && (
+        <div className="space-y-6 pt-8 border-t border-gray-100">
+          <div className="flex justify-between items-center px-4">
+            <h3 className="text-2xl font-black text-gray-900 tracking-tight">League Updates & News</h3>
+            <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full uppercase tracking-widest">Latest from Media Team</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {news.map(item => (
+              <div 
+                key={item.id} 
+                onClick={() => setSelectedNews(item)}
+                className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden group hover:shadow-xl transition-all cursor-pointer flex flex-col"
+              >
+                <div className="relative aspect-video overflow-hidden">
+                  <img src={item.imageUrl || 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=1000&auto=format&fit=crop'} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="" />
+                  {item.important && (
+                    <div className="absolute top-4 left-4 bg-red-600 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">
+                      Important
+                    </div>
+                  )}
+                </div>
+                <div className="p-6 space-y-3 flex-1">
+                  <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{new Date(item.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                  <h4 className="text-xl font-black text-gray-900 leading-tight group-hover:text-blue-600 transition-colors">{item.title}</h4>
+                  <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed">{item.content}</p>
+                </div>
+                <div className="p-6 pt-0">
+                  <div className="flex items-center text-xs font-black text-gray-900 uppercase tracking-widest group-hover:translate-x-1 transition-transform">
+                    Read Story <i className="fas fa-arrow-right ml-2 text-blue-500"></i>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* News Reader Modal */}
       {selectedNews && (
