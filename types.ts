@@ -30,6 +30,15 @@ export interface NewsItem {
   important: boolean;
 }
 
+export interface Ad {
+  id: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  linkUrl: string;
+  isActive: boolean;
+}
+
 export interface GoalScorer {
   playerId: string;
   playerName: string;
