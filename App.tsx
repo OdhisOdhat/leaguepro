@@ -13,7 +13,7 @@ import Navbar from './components/Navbar.tsx';
 import Login from './components/Login.tsx';
 import ErrorBoundary from './components/ErrorBoundary.tsx';
 
-// Turso Cloud Configuration
+// Turso Cloud Configuration - Use HTTPS for browser/GitHub Pages compatibility
 const TURSO_CONFIG = {
   url: "https://odhisodhat-vercel-icfg-ftcymaxmqxj9bs7ney2w5mpx.aws-us-east-1.turso.io",
   authToken: "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NjkwODMyMjEsImlkIjoiNzA2MmVkNjItNDUwOS00YmEzLWIwYWYtNjBjY2YzNDJlMTg4IiwicmlkIjoiMDQ4ZmNlMDctMGEwOS00OGIxLTg3OWQtNTEzZGZiMWUxZmUzIn0.0i537WhP95mSF1AUrhIiakcMQebMcDFk21Q2C0d4b-YZpgJB4Plba8ox3wDDLtoFhJrsKDtr7r_E-dQ_aIDiBw"
@@ -41,18 +41,24 @@ const App: React.FC = () => {
   const [dbLogs, setDbLogs] = useState<string[]>([]);
 
   const addLog = (msg: string) => {
-    setDbLogs(prev => [msg, ...prev].slice(0, 10));
+    const timestamp = new Date().toLocaleTimeString();
+    setDbLogs(prev => [`[${timestamp}] ${msg}`, ...prev].slice(0, 20));
     console.log(`[Turso] ${msg}`);
   };
 
   const dbService = {
     setup: async () => {
-      addLog('Initializing tables...');
-      await db.execute(`CREATE TABLE IF NOT EXISTS teams (id TEXT PRIMARY KEY, data TEXT);`);
-      await db.execute(`CREATE TABLE IF NOT EXISTS matches (id TEXT PRIMARY KEY, data TEXT);`);
-      await db.execute(`CREATE TABLE IF NOT EXISTS settings (id TEXT PRIMARY KEY, data TEXT);`);
-      await db.execute(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT UNIQUE, password TEXT, role TEXT, teamId TEXT);`);
-      addLog('✅ Database ready');
+      addLog('Verifying Cloud Database schema...');
+      try {
+        await db.execute(`CREATE TABLE IF NOT EXISTS teams (id TEXT PRIMARY KEY, data TEXT);`);
+        await db.execute(`CREATE TABLE IF NOT EXISTS matches (id TEXT PRIMARY KEY, data TEXT);`);
+        await db.execute(`CREATE TABLE IF NOT EXISTS settings (id TEXT PRIMARY KEY, data TEXT);`);
+        await db.execute(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT UNIQUE, password TEXT, role TEXT, teamId TEXT);`);
+        addLog('✅ Schema ready');
+      } catch (e) {
+        addLog('❌ Schema verification failed');
+        throw e;
+      }
     },
     saveTeam: async (team: Team) => {
       addLog(`Syncing team: ${team.name}`);
@@ -62,7 +68,7 @@ const App: React.FC = () => {
       });
     },
     saveMatch: async (match: Match) => {
-      addLog(`Syncing match result: ${match.id}`);
+      addLog(`Syncing match: ${match.id}`);
       await db.execute({
         sql: "INSERT INTO matches (id, data) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data",
         args: [match.id, JSON.stringify(match)]
@@ -76,7 +82,7 @@ const App: React.FC = () => {
       });
     },
     fetchCloudData: async () => {
-      addLog('Pulling data from cloud...');
+      addLog('Pulling latest cloud state...');
       const t = await db.execute("SELECT data FROM teams");
       const m = await db.execute("SELECT data FROM matches");
       const s = await db.execute("SELECT data FROM settings WHERE id = 'global'");
@@ -99,13 +105,18 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const boot = async () => {
+      addLog('Starting application boot...');
       const localT = localStorage.getItem(STORAGE_KEYS.TEAMS);
       const localM = localStorage.getItem(STORAGE_KEYS.MATCHES);
       const localS = localStorage.getItem(STORAGE_KEYS.SETTINGS);
       
-      if (localT) setTeams(JSON.parse(localT)); else setTeams(INITIAL_TEAMS);
-      if (localM) setMatches(JSON.parse(localM)); else setMatches(INITIAL_MATCHES);
-      if (localS) setLeagueSettings(JSON.parse(localS));
+      const currentTeams = localT ? JSON.parse(localT) : INITIAL_TEAMS;
+      const currentMatches = localM ? JSON.parse(localM) : INITIAL_MATCHES;
+      const currentSettings = localS ? JSON.parse(localS) : DEFAULT_LEAGUE_SETTINGS;
+
+      setTeams(currentTeams);
+      setMatches(currentMatches);
+      setLeagueSettings(currentSettings);
 
       const savedSession = localStorage.getItem(STORAGE_KEYS.SESSION);
       if (savedSession) {
@@ -121,20 +132,20 @@ const App: React.FC = () => {
         const cloudData = await dbService.fetchCloudData();
         
         if (cloudData.teams.length === 0) {
-          addLog("Cloud empty - Seeding from local...");
-          for (const t of (localT ? JSON.parse(localT) : INITIAL_TEAMS)) await dbService.saveTeam(t);
-          for (const m of (localM ? JSON.parse(localM) : INITIAL_MATCHES)) await dbService.saveMatch(m);
-          await dbService.saveSettings(localS ? JSON.parse(localS) : DEFAULT_LEAGUE_SETTINGS);
-          addLog("✅ Seeding complete");
+          addLog("☁️ Cloud empty - Auto-seeding database...");
+          for (const t of currentTeams) await dbService.saveTeam(t);
+          for (const m of currentMatches) await dbService.saveMatch(m);
+          await dbService.saveSettings(currentSettings);
+          addLog("🏁 Initial seeding complete");
         } else {
           setTeams(cloudData.teams);
           setMatches(cloudData.matches);
           if (cloudData.settings) setLeagueSettings(cloudData.settings);
-          addLog("✅ Cloud sync success");
+          addLog("✅ Cloud sync successful");
         }
       } catch (e) {
-        setSyncError("Cloud offline. Data saving locally.");
-        addLog(`❌ Error: ${e instanceof Error ? e.message : 'Unknown'}`);
+        setSyncError("Cloud connection failed. Using local storage.");
+        addLog(`❌ Sync Error: ${e instanceof Error ? e.message : 'Unknown'}`);
       } finally {
         setIsSyncing(false);
       }
@@ -178,14 +189,14 @@ const App: React.FC = () => {
   const forcePushToCloud = async () => {
     try {
       setIsSyncing(true);
-      addLog("Starting manual force sync...");
+      addLog("Starting manual Cloud Force Push...");
       for (const t of teams) await dbService.saveTeam(t);
       for (const m of matches) await dbService.saveMatch(m);
       await dbService.saveSettings(leagueSettings);
-      addLog("✅ Manual force sync complete");
+      addLog("✅ Force Push successful!");
       setSyncError(null);
     } catch (e) {
-      addLog("❌ Force sync failed");
+      addLog("❌ Force Push failed");
       setSyncError("Sync failed. Check connection.");
     } finally {
       setIsSyncing(false);
