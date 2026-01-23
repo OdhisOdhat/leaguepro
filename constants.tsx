@@ -1,5 +1,5 @@
 
-import { Team, Match, LeagueSettings } from './types';
+import { Team, Match, LeagueSettings } from './types.ts';
 
 export const MAX_SQUAD_SIZE = 30;
 
