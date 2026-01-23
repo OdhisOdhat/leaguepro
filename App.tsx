@@ -13,7 +13,7 @@ import Navbar from './components/Navbar.tsx';
 import Login from './components/Login.tsx';
 import ErrorBoundary from './components/ErrorBoundary.tsx';
 
-// Turso Cloud Configuration - Using HTTPS for browser compatibility
+// Turso Cloud Configuration
 const TURSO_CONFIG = {
   url: "https://odhisodhat-vercel-icfg-ftcymaxmqxj9bs7ney2w5mpx.aws-us-east-1.turso.io",
   authToken: "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NjkwODMyMjEsImlkIjoiNzA2MmVkNjItNDUwOS00YmEzLWIwYWYtNjBjY2YzNDJlMTg4IiwicmlkIjoiMDQ4ZmNlMDctMGEwOS00OGIxLTg3OWQtNTEzZGZiMWUxZmUzIn0.0i537WhP95mSF1AUrhIiakcMQebMcDFk21Q2C0d4b-YZpgJB4Plba8ox3wDDLtoFhJrsKDtr7r_E-dQ_aIDiBw"
@@ -23,13 +23,9 @@ const STORAGE_KEYS = {
   TEAMS: 'lp_teams_v2',
   MATCHES: 'lp_matches_v2',
   SETTINGS: 'lp_settings_v2',
-  USERS: 'lp_local_users_v2',
-  ROLE: 'lp_role_v2',
-  SELECTED_TEAM: 'lp_selectedTeam_v2',
   SESSION: 'lp_session_v2'
 };
 
-// Initialize direct database client
 const db = createClient(TURSO_CONFIG);
 
 const App: React.FC = () => {
@@ -42,62 +38,53 @@ const App: React.FC = () => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [dbLogs, setDbLogs] = useState<string[]>([]);
 
-  // Database Service layer with improved logging
+  const addLog = (msg: string) => {
+    setDbLogs(prev => [msg, ...prev].slice(0, 10));
+    console.log(`[Turso] ${msg}`);
+  };
+
   const dbService = {
     setup: async () => {
-      console.log('--- DB SETUP START ---');
-      try {
-        await db.execute(`CREATE TABLE IF NOT EXISTS teams (id TEXT PRIMARY KEY, data TEXT);`);
-        await db.execute(`CREATE TABLE IF NOT EXISTS matches (id TEXT PRIMARY KEY, data TEXT);`);
-        await db.execute(`CREATE TABLE IF NOT EXISTS settings (id TEXT PRIMARY KEY, data TEXT);`);
-        await db.execute(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT UNIQUE, password TEXT, role TEXT, teamId TEXT);`);
-        console.log('✅ Turso Schema Verified');
-      } catch (e) {
-        console.error('❌ DB Schema Setup Failed:', e);
-        throw e;
-      }
-    },
-    fetchTeams: async () => {
-      console.log('Fetching teams from Turso...');
-      const res = await db.execute("SELECT data FROM teams");
-      console.log(`Fetched ${res.rows.length} teams`);
-      return res.rows.map(r => JSON.parse(r.data as string)) as Team[];
-    },
-    fetchMatches: async () => {
-      console.log('Fetching matches from Turso...');
-      const res = await db.execute("SELECT data FROM matches");
-      console.log(`Fetched ${res.rows.length} matches`);
-      return res.rows.map(r => JSON.parse(r.data as string)) as Match[];
-    },
-    fetchSettings: async () => {
-      console.log('Fetching settings from Turso...');
-      const res = await db.execute("SELECT data FROM settings WHERE id = 'global'");
-      return res.rows.length > 0 ? JSON.parse(res.rows[0].data as string) as LeagueSettings : null;
+      addLog('Initializing tables...');
+      await db.execute(`CREATE TABLE IF NOT EXISTS teams (id TEXT PRIMARY KEY, data TEXT);`);
+      await db.execute(`CREATE TABLE IF NOT EXISTS matches (id TEXT PRIMARY KEY, data TEXT);`);
+      await db.execute(`CREATE TABLE IF NOT EXISTS settings (id TEXT PRIMARY KEY, data TEXT);`);
+      await db.execute(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT UNIQUE, password TEXT, role TEXT, teamId TEXT);`);
+      addLog('✅ Database ready');
     },
     saveTeam: async (team: Team) => {
-      console.log(`Saving team to Turso: ${team.name}`);
+      addLog(`Syncing team: ${team.name}`);
       await db.execute({
         sql: "INSERT INTO teams (id, data) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data",
         args: [team.id, JSON.stringify(team)]
       });
-      console.log(`✅ Saved: ${team.name}`);
     },
     saveMatch: async (match: Match) => {
-      console.log(`Saving match to Turso: ${match.id}`);
+      addLog(`Syncing match result: ${match.id}`);
       await db.execute({
         sql: "INSERT INTO matches (id, data) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data",
         args: [match.id, JSON.stringify(match)]
       });
-      console.log(`✅ Saved Match: ${match.id}`);
     },
     saveSettings: async (settings: LeagueSettings) => {
-      console.log('Saving settings to Turso...');
+      addLog('Syncing league settings...');
       await db.execute({
         sql: "INSERT INTO settings (id, data) VALUES ('global', ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data",
         args: [JSON.stringify(settings)]
       });
-      console.log('✅ Saved Settings');
+    },
+    fetchCloudData: async () => {
+      addLog('Pulling data from cloud...');
+      const t = await db.execute("SELECT data FROM teams");
+      const m = await db.execute("SELECT data FROM matches");
+      const s = await db.execute("SELECT data FROM settings WHERE id = 'global'");
+      return {
+        teams: t.rows.map(r => JSON.parse(r.data as string)) as Team[],
+        matches: m.rows.map(r => JSON.parse(r.data as string)) as Match[],
+        settings: s.rows.length > 0 ? JSON.parse(s.rows[0].data as string) as LeagueSettings : null
+      };
     },
     login: async (username: string, password: string) => {
       if (username === 'admin' && password === 'admin123') return { role: UserRole.ADMIN };
@@ -105,31 +92,20 @@ const App: React.FC = () => {
         sql: "SELECT role, teamId FROM users WHERE username = ? AND password = ?",
         args: [username, password]
       });
-      if (res.rows.length > 0) {
-        return { role: res.rows[0].role as UserRole, teamId: res.rows[0].teamId as string };
-      }
+      if (res.rows.length > 0) return { role: res.rows[0].role as UserRole, teamId: res.rows[0].teamId as string };
       throw new Error("Invalid credentials");
     }
   };
 
   useEffect(() => {
     const boot = async () => {
-      // Load local cache immediately for UX
       const localT = localStorage.getItem(STORAGE_KEYS.TEAMS);
       const localM = localStorage.getItem(STORAGE_KEYS.MATCHES);
       const localS = localStorage.getItem(STORAGE_KEYS.SETTINGS);
       
-      let initialTeams = INITIAL_TEAMS;
-      let initialMatches = INITIAL_MATCHES;
-      let initialSettings = DEFAULT_LEAGUE_SETTINGS;
-
-      if (localT) initialTeams = JSON.parse(localT);
-      if (localM) initialMatches = JSON.parse(localM);
-      if (localS) initialSettings = JSON.parse(localS);
-
-      setTeams(initialTeams);
-      setMatches(initialMatches);
-      setLeagueSettings(initialSettings);
+      if (localT) setTeams(JSON.parse(localT)); else setTeams(INITIAL_TEAMS);
+      if (localM) setMatches(JSON.parse(localM)); else setMatches(INITIAL_MATCHES);
+      if (localS) setLeagueSettings(JSON.parse(localS));
 
       const savedSession = localStorage.getItem(STORAGE_KEYS.SESSION);
       if (savedSession) {
@@ -137,35 +113,28 @@ const App: React.FC = () => {
         setRole(session.role);
         setSelectedTeamId(session.teamId || null);
       }
-      
       setIsLoaded(true);
 
-      // Sync with Turso Cloud
       try {
         setIsSyncing(true);
-        setSyncError(null);
         await dbService.setup();
+        const cloudData = await dbService.fetchCloudData();
         
-        const cloudT = await dbService.fetchTeams();
-        const cloudM = await dbService.fetchMatches();
-        const cloudS = await dbService.fetchSettings();
-        
-        // If cloud is empty, seed it with current local/default data
-        if (cloudT.length === 0) {
-          console.log("☁️ Turso cloud is empty. Starting initial seed...");
-          for (const t of initialTeams) await dbService.saveTeam(t);
-          for (const m of initialMatches) await dbService.saveMatch(m);
-          await dbService.saveSettings(initialSettings);
-          console.log("🏁 Cloud seeding complete!");
+        if (cloudData.teams.length === 0) {
+          addLog("Cloud empty - Seeding from local...");
+          for (const t of (localT ? JSON.parse(localT) : INITIAL_TEAMS)) await dbService.saveTeam(t);
+          for (const m of (localM ? JSON.parse(localM) : INITIAL_MATCHES)) await dbService.saveMatch(m);
+          await dbService.saveSettings(localS ? JSON.parse(localS) : DEFAULT_LEAGUE_SETTINGS);
+          addLog("✅ Seeding complete");
         } else {
-          console.log("☁️ Syncing local state with Turso cloud data...");
-          setTeams(cloudT);
-          setMatches(cloudM);
-          if (cloudS) setLeagueSettings(cloudS);
+          setTeams(cloudData.teams);
+          setMatches(cloudData.matches);
+          if (cloudData.settings) setLeagueSettings(cloudData.settings);
+          addLog("✅ Cloud sync success");
         }
       } catch (e) {
-        console.error('❌ Turso Direct Sync Failed:', e);
-        setSyncError('Database connection issue. Working in offline mode.');
+        setSyncError("Cloud offline. Data saving locally.");
+        addLog(`❌ Error: ${e instanceof Error ? e.message : 'Unknown'}`);
       } finally {
         setIsSyncing(false);
       }
@@ -173,17 +142,13 @@ const App: React.FC = () => {
     boot();
   }, []);
 
-  // Update local storage whenever state changes
   useEffect(() => {
     if (isLoaded) {
       localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(teams));
       localStorage.setItem(STORAGE_KEYS.MATCHES, JSON.stringify(matches));
       localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(leagueSettings));
-      if (role !== UserRole.PUBLIC) {
-        localStorage.setItem(STORAGE_KEYS.SESSION, JSON.stringify({ role, teamId: selectedTeamId }));
-      } else {
-        localStorage.removeItem(STORAGE_KEYS.SESSION);
-      }
+      if (role !== UserRole.PUBLIC) localStorage.setItem(STORAGE_KEYS.SESSION, JSON.stringify({ role, teamId: selectedTeamId }));
+      else localStorage.removeItem(STORAGE_KEYS.SESSION);
     }
   }, [teams, matches, leagueSettings, role, selectedTeamId, isLoaded]);
 
@@ -210,79 +175,21 @@ const App: React.FC = () => {
     return Object.values(table).sort((a, b) => b.points !== a.points ? b.points - a.points : b.goalDifference !== a.goalDifference ? b.goalDifference - a.goalDifference : b.goalsFor - a.goalsFor);
   }, [teams, matches]);
 
-  const updateLeagueSettings = async (settings: LeagueSettings) => {
-    setLeagueSettings(settings);
+  const forcePushToCloud = async () => {
     try {
-      await dbService.saveSettings(settings);
-    } catch (e) { console.warn('Saved only locally'); }
-  };
-
-  const addTeam = async (teamData: Omit<Team, 'id' | 'players'>) => {
-    const newTeam: Team = { ...teamData, id: `t${Date.now()}`, players: [] };
-    setTeams(prev => [...prev, newTeam]);
-    try {
-      await dbService.saveTeam(newTeam);
-    } catch (e) { console.warn('Saved only locally'); }
-    if (role !== UserRole.ADMIN) setView('standings');
-  };
-
-  const updateMatch = async (matchId: string, hScore: number, aScore: number, scorers?: GoalScorer[], cards?: CardEvent[], refereeName?: string) => {
-    const updatedMatches = matches.map(m => m.id === matchId ? { 
-      ...m, 
-      homeScore: hScore, 
-      awayScore: aScore, 
-      scorers: scorers || m.scorers, 
-      cards: cards || m.cards, 
-      refereeName: refereeName !== undefined ? refereeName : m.refereeName,
-      isCompleted: true 
-    } : m);
-    setMatches(updatedMatches);
-    
-    const match = updatedMatches.find(m => m.id === matchId);
-    if (match) {
-      try {
-        await dbService.saveMatch(match);
-      } catch (e) { console.warn('Saved only locally'); }
+      setIsSyncing(true);
+      addLog("Starting manual force sync...");
+      for (const t of teams) await dbService.saveTeam(t);
+      for (const m of matches) await dbService.saveMatch(m);
+      await dbService.saveSettings(leagueSettings);
+      addLog("✅ Manual force sync complete");
+      setSyncError(null);
+    } catch (e) {
+      addLog("❌ Force sync failed");
+      setSyncError("Sync failed. Check connection.");
+    } finally {
+      setIsSyncing(false);
     }
-
-    if (scorers) {
-      setTeams(prevTeams => {
-        const newTeams = prevTeams.map(team => {
-          const updatedPlayers = team.players.map(player => {
-            const totalGoals = updatedMatches.reduce((acc, m) => acc + (m.scorers || []).filter(s => s.playerId === player.id).length, 0);
-            return { ...player, goals: totalGoals };
-          });
-          return { ...team, players: updatedPlayers };
-        });
-        // Push team updates to cloud
-        newTeams.forEach(t => dbService.saveTeam(t).catch(() => {}));
-        return newTeams;
-      });
-    }
-  };
-
-  const updatePlayers = async (teamId: string, players: Player[]) => {
-    const updatedTeams = teams.map(t => t.id === teamId ? { ...t, players } : t);
-    setTeams(updatedTeams);
-    const team = updatedTeams.find(t => t.id === teamId);
-    if (team) {
-      try {
-        await dbService.saveTeam(team);
-      } catch (e) { console.warn('Saved only locally'); }
-    }
-  };
-
-  const importLeagueState = (data: { teams: Team[], matches: Match[], settings?: LeagueSettings, users?: any[] }) => {
-    if (data.teams) setTeams(data.teams);
-    if (data.matches) setMatches(data.matches);
-    if (data.settings) setLeagueSettings(data.settings);
-    alert('Import complete. Changes will sync to Turso on next update.');
-  };
-
-  const handleLogin = (r: UserRole, tid?: string) => {
-    setRole(r);
-    setSelectedTeamId(tid || null);
-    setView('dashboard');
   };
 
   if (!isLoaded) return <div className="h-screen w-full flex items-center justify-center bg-gray-50 text-blue-600"><i className="fas fa-circle-notch fa-spin text-4xl"></i></div>;
@@ -290,77 +197,65 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col selection:bg-blue-100 selection:text-blue-900">
       <Navbar 
-        currentView={view} 
-        setView={setView} 
-        role={role} 
-        onLogout={() => { setRole(UserRole.PUBLIC); setSelectedTeamId(null); localStorage.removeItem(STORAGE_KEYS.SESSION); setView('dashboard'); }} 
-        selectedTeamId={selectedTeamId} 
-        teams={teams} 
-        isSyncing={isSyncing}
-        syncError={syncError}
-        leagueSettings={leagueSettings}
+        currentView={view} setView={setView} role={role} 
+        onLogout={() => { setRole(UserRole.PUBLIC); setSelectedTeamId(null); setView('dashboard'); }} 
+        selectedTeamId={selectedTeamId} teams={teams} 
+        isSyncing={isSyncing} syncError={syncError} leagueSettings={leagueSettings}
       />
       
-      {syncError && (
-        <div className="bg-amber-50 border-b border-amber-100 py-2 px-4 text-center">
-          <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest flex items-center justify-center">
-            <i className="fas fa-exclamation-triangle mr-2"></i>
-            {syncError}
-          </p>
+      {isSyncing && (
+        <div className="fixed top-0 left-0 w-full h-1 bg-blue-100 z-[100]">
+          <div className="h-full bg-blue-600 animate-[progress_1.5s_infinite_linear]" style={{width: '30%'}}></div>
         </div>
       )}
 
       <main className="flex-1 container mx-auto px-4 py-8 max-width-6xl">
         {(() => {
           switch (view) {
-            case 'login': return <ErrorBoundary componentName="Login Module"><Login teams={teams} onLogin={handleLogin} onBack={() => setView('dashboard')} loginFn={dbService.login} /></ErrorBoundary>;
-            case 'dashboard': return <ErrorBoundary componentName="Dashboard"><Dashboard teams={teams} matches={matches} standings={standings} setView={setView} leagueSettings={leagueSettings} /></ErrorBoundary>;
-            case 'standings': return <ErrorBoundary componentName="Standings Table"><StandingsTable standings={standings} teams={teams} leagueSettings={leagueSettings} /></ErrorBoundary>;
-            case 'registration': return <ErrorBoundary componentName="Team Registration"><TeamRegistration onRegister={addTeam} existingNames={teams.map(t => t.name)} /></ErrorBoundary>;
-            case 'schedule': return <ErrorBoundary componentName="Fixture Scheduler"><MatchScheduler matches={matches} teams={teams} isAdmin={role === UserRole.ADMIN} role={role} selectedTeamId={selectedTeamId} onAddMatch={(m) => { const upd = [...matches, m]; setMatches(upd); dbService.saveMatch(m); }} onUpdateMatch={updateMatch} leagueSettings={leagueSettings} /></ErrorBoundary>;
+            case 'login': return <Login teams={teams} onLogin={(r, t) => { setRole(r); setSelectedTeamId(t || null); setView('dashboard'); }} onBack={() => setView('dashboard')} loginFn={dbService.login} />;
+            case 'dashboard': return <Dashboard teams={teams} matches={matches} standings={standings} setView={setView} leagueSettings={leagueSettings} />;
+            case 'standings': return <StandingsTable standings={standings} teams={teams} leagueSettings={leagueSettings} />;
+            case 'registration': return <TeamRegistration onRegister={(tData) => { 
+                const newTeam = { ...tData, id: `t${Date.now()}`, players: [] };
+                setTeams(p => [...p, newTeam]);
+                dbService.saveTeam(newTeam).catch(() => {});
+                setView('standings');
+              }} existingNames={teams.map(t => t.name)} />;
+            case 'schedule': return <MatchScheduler 
+              matches={matches} teams={teams} isAdmin={role === UserRole.ADMIN} role={role} 
+              selectedTeamId={selectedTeamId} onAddMatch={(m) => { setMatches(p => [...p, m]); dbService.saveMatch(m).catch(() => {}); }} 
+              onUpdateMatch={(id, h, a, sc, c, r) => {
+                const updated = matches.map(m => m.id === id ? { ...m, homeScore: h, awayScore: a, scorers: sc, cards: c, refereeName: r, isCompleted: true } : m);
+                setMatches(updated);
+                const m = updated.find(u => u.id === id);
+                if (m) dbService.saveMatch(m).catch(() => {});
+              }} 
+              leagueSettings={leagueSettings} 
+            />;
+            case 'admin': return <AdminPanel 
+              teams={teams} matches={matches} leagueSettings={leagueSettings}
+              onUpdateLeagueSettings={(s) => { setLeagueSettings(s); dbService.saveSettings(s).catch(() => {}); }}
+              onUpdateMatch={() => {}} 
+              onUpdateTeam={(t) => { setTeams(p => p.map(u => u.id === t.id ? t : u)); dbService.saveTeam(t).catch(() => {}); }}
+              onRegisterTeam={() => {}} 
+              onManageSquad={(tid) => { setSelectedTeamId(tid); setView('players'); }}
+              onReset={() => { if(confirm('Reset local data?')) { setTeams(INITIAL_TEAMS); setMatches(INITIAL_MATCHES); } }} 
+              onImportState={() => {}}
+              dbLogs={dbLogs}
+              onForceSync={forcePushToCloud}
+            />;
             case 'players':
               const teamToManage = teams.find(t => t.id === selectedTeamId);
-              return teamToManage ? (
-                <ErrorBoundary componentName="Squad Management">
-                  <PlayerManager 
-                    team={teamToManage} 
-                    onUpdate={(p) => updatePlayers(teamToManage.id, p)} 
-                    onBack={() => setView(role === UserRole.ADMIN ? 'admin' : 'dashboard')} 
-                    isAdminOverride={role === UserRole.ADMIN}
-                  />
-                </ErrorBoundary>
-              ) : null;
-            case 'admin':
-              return role === UserRole.ADMIN ? (
-                <ErrorBoundary componentName="Administrative Control Panel">
-                  <AdminPanel 
-                    teams={teams} 
-                    matches={matches}
-                    leagueSettings={leagueSettings}
-                    onUpdateLeagueSettings={updateLeagueSettings}
-                    onUpdateMatch={updateMatch} 
-                    onUpdateTeam={(updated) => {
-                      const updatedTeams = teams.map(t => t.id === updated.id ? updated : t);
-                      setTeams(updatedTeams);
-                      dbService.saveTeam(updated).catch(() => {});
-                    }}
-                    onRegisterTeam={addTeam}
-                    onManageSquad={(tid) => { setSelectedTeamId(tid); setView('players'); }}
-                    onReset={() => { 
-                      if(confirm('Wipe local cache? (Cloud data remains until manually deleted)')) {
-                        setTeams(INITIAL_TEAMS); 
-                        setMatches(INITIAL_MATCHES); 
-                        setLeagueSettings(DEFAULT_LEAGUE_SETTINGS);
-                      }
-                    }} 
-                    onImportState={importLeagueState}
-                  />
-                </ErrorBoundary>
-              ) : null;
-            default: return <ErrorBoundary componentName="Dashboard"><Dashboard teams={teams} matches={matches} standings={standings} setView={setView} leagueSettings={leagueSettings} /></ErrorBoundary>;
+              return teamToManage ? <PlayerManager team={teamToManage} onUpdate={(p) => { 
+                const updated = { ...teamToManage, players: p };
+                setTeams(teams.map(t => t.id === teamToManage.id ? updated : t));
+                dbService.saveTeam(updated).catch(() => {});
+              }} onBack={() => setView(role === UserRole.ADMIN ? 'admin' : 'dashboard')} isAdminOverride={role === UserRole.ADMIN} /> : null;
+            default: return <Dashboard teams={teams} matches={matches} standings={standings} setView={setView} leagueSettings={leagueSettings} />;
           }
         })()}
       </main>
+      <style>{`@keyframes progress { 0% { left: -30%; } 100% { left: 100%; } }`}</style>
     </div>
   );
 };
