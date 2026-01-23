@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState } from 'https://esm.sh/react@19.0.0';
 import { UserRole, Team } from '../types.ts';
 
 interface LoginProps {
@@ -68,11 +69,8 @@ const Login: React.FC<LoginProps> = ({ teams, onLogin, onBack, loginFn }) => {
     setSocialLoading(provider);
     setError('');
     
-    // Improved responsiveness with a shorter delay and clear GUEST role assignment
     setTimeout(() => {
       setSocialLoading(null);
-      // For demo purposes, social login grants GUEST role access
-      // This role is recognized by the Navbar and App state as authenticated
       onLogin(UserRole.GUEST);
     }, 800);
   };
@@ -92,7 +90,6 @@ const Login: React.FC<LoginProps> = ({ teams, onLogin, onBack, loginFn }) => {
           </p>
         </div>
 
-        {/* Social Authentication Section */}
         <div className="space-y-3">
           <button
             type="button"
