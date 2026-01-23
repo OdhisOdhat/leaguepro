@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { Team, Match, Standing, LeagueSettings } from '../types';
+import { Team, Match, Standing, LeagueSettings } from '../types.ts';
 
 interface DashboardProps {
   teams: Team[];
