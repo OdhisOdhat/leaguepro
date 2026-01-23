@@ -21,6 +21,15 @@ export interface Team {
   players: Player[];
 }
 
+export interface NewsItem {
+  id: string;
+  title: string;
+  content: string;
+  imageUrl: string;
+  date: string;
+  important: boolean;
+}
+
 export interface GoalScorer {
   playerId: string;
   playerName: string;
