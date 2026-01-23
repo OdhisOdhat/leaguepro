@@ -38,7 +38,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     branding: false,
     cloud: true,
     members: false,
-    news: false,
+    news: true,
     ads: true
   });
   
@@ -74,7 +74,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       date: newsForm.date || new Date().toISOString()
     });
     setNewsForm({ title: '', content: '', imageUrl: '', important: false });
-    alert('News posted successfully!');
+    alert('News published to league feed.');
   };
 
   const handlePostAd = (e: React.FormEvent) => {
@@ -89,7 +89,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       isActive: adForm.isActive !== undefined ? adForm.isActive : true
     });
     setAdForm({ title: '', description: '', imageUrl: '', linkUrl: '', isActive: true });
-    alert('Advertisement updated!');
+    alert('Sponsorship advertisement updated.');
   };
 
   const SectionHeader: React.FC<{ title: string; icon: string; sectionKey: string }> = ({ title, icon, sectionKey }) => (
@@ -127,46 +127,52 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         )}
       </div>
 
-      {/* Hero Ad Management */}
+      {/* Hero Ad Management - Strictly for Admin */}
       <div className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-xl">
         <SectionHeader title="Hero Ad Management" icon="fa-ad" sectionKey="ads" />
         {expandedSections.ads && (
           <div className="space-y-8 animate-in slide-in-from-top-2">
-             <form onSubmit={handlePostAd} className="space-y-6 bg-blue-50/30 p-6 rounded-3xl border border-blue-100/50">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Sponsor/Ad Name</label>
-                      <input required className="w-full border border-gray-200 bg-white rounded-xl px-4 py-3 font-bold outline-none focus:ring-2 focus:ring-blue-500" value={adForm.title} onChange={e => setAdForm({...adForm, title: e.target.value})} placeholder="e.g. Nike Football" />
+             <div className="bg-blue-50/30 p-6 rounded-3xl border border-blue-100/50">
+               <div className="flex items-center space-x-2 mb-4">
+                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600">Sponsorship Editor (Admin Only)</span>
+               </div>
+               <form onSubmit={handlePostAd} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Sponsor/Ad Name</label>
+                        <input required className="w-full border border-gray-200 bg-white rounded-xl px-4 py-3 font-bold outline-none focus:ring-2 focus:ring-blue-500" value={adForm.title} onChange={e => setAdForm({...adForm, title: e.target.value})} placeholder="e.g. Nike Football" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Redirect URL</label>
+                        <input required className="w-full border border-gray-200 bg-white rounded-xl px-4 py-3 font-bold outline-none focus:ring-2 focus:ring-blue-500" value={adForm.linkUrl} onChange={e => setAdForm({...adForm, linkUrl: e.target.value})} placeholder="https://..." />
+                      </div>
+                      <div className="flex items-center space-x-3 bg-white p-3 rounded-xl border border-gray-200">
+                         <input type="checkbox" id="adActive" className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500" checked={adForm.isActive} onChange={e => setAdForm({...adForm, isActive: e.target.checked})} />
+                         <label htmlFor="adActive" className="text-xs font-black text-gray-600 uppercase tracking-widest cursor-pointer">Live on Dashboard</label>
+                      </div>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Redirect URL</label>
-                      <input required className="w-full border border-gray-200 bg-white rounded-xl px-4 py-3 font-bold outline-none focus:ring-2 focus:ring-blue-500" value={adForm.linkUrl} onChange={e => setAdForm({...adForm, linkUrl: e.target.value})} placeholder="https://..." />
-                    </div>
-                    <div className="flex items-center space-x-3 bg-white p-3 rounded-xl border border-gray-200">
-                       <input type="checkbox" id="adActive" className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500" checked={adForm.isActive} onChange={e => setAdForm({...adForm, isActive: e.target.checked})} />
-                       <label htmlFor="adActive" className="text-xs font-black text-gray-600 uppercase tracking-widest cursor-pointer">Live on Dashboard</label>
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Ad Creative (Logo/Photo)</label>
-                    <div className="flex items-center space-x-4">
-                       <div className="w-24 h-24 bg-white rounded-xl border border-gray-200 flex items-center justify-center overflow-hidden">
-                          {adForm.imageUrl ? <img src={adForm.imageUrl} className="w-full h-full object-cover" /> : <i className="fas fa-bullhorn text-gray-200 text-2xl"></i>}
-                       </div>
-                       <button type="button" onClick={() => adImgRef.current?.click()} className="bg-blue-100 text-blue-600 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-200 transition-all">Select Image</button>
-                       <input type="file" ref={adImgRef} className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'ad')} />
-                    </div>
-                    <div className="mt-4 space-y-1">
-                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Promotional Text</label>
-                       <textarea rows={2} className="w-full border border-gray-200 bg-white rounded-xl px-4 py-2 font-bold outline-none focus:ring-2 focus:ring-blue-500 resize-none" value={adForm.description} onChange={e => setAdForm({...adForm, description: e.target.value})} placeholder="Short marketing blurb..." />
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Ad Creative (Logo/Photo)</label>
+                      <div className="flex items-center space-x-4">
+                         <div className="w-24 h-24 bg-white rounded-xl border border-gray-200 flex items-center justify-center overflow-hidden">
+                            {adForm.imageUrl ? <img src={adForm.imageUrl} className="w-full h-full object-cover" /> : <i className="fas fa-bullhorn text-gray-200 text-2xl"></i>}
+                         </div>
+                         <button type="button" onClick={() => adImgRef.current?.click()} className="bg-blue-100 text-blue-600 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-200 transition-all">Select Image</button>
+                         <input type="file" ref={adImgRef} className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'ad')} />
+                      </div>
+                      <div className="mt-4 space-y-1">
+                         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Promotional Text</label>
+                         <textarea rows={2} className="w-full border border-gray-200 bg-white rounded-xl px-4 py-2 font-bold outline-none focus:ring-2 focus:ring-blue-500 resize-none" value={adForm.description} onChange={e => setAdForm({...adForm, description: e.target.value})} placeholder="Short marketing blurb..." />
+                      </div>
                     </div>
                   </div>
-                </div>
-                <button type="submit" className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-lg hover:bg-blue-700 transition-all">
-                  {adForm.id ? 'Update Advertisement' : 'Add Sponsor Banner'}
-                </button>
-             </form>
+                  <button type="submit" className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-lg hover:bg-blue-700 transition-all">
+                    {adForm.id ? 'Update Advertisement' : 'Add Sponsor Banner'}
+                  </button>
+               </form>
+             </div>
 
              <div className="space-y-3">
                 {ads.map(ad => (
@@ -191,42 +197,48 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         )}
       </div>
 
-      {/* League News Management */}
+      {/* League News Management - Strictly for Admin */}
       <div className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-xl">
         <SectionHeader title="League News & Updates" icon="fa-newspaper" sectionKey="news" />
         {expandedSections.news && (
           <div className="space-y-8 animate-in slide-in-from-top-2">
-             <form onSubmit={handlePostNews} className="space-y-6 bg-gray-50 p-6 rounded-3xl border border-gray-100">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Post Title</label>
-                      <input required className="w-full border border-gray-200 bg-white rounded-xl px-4 py-3 font-bold outline-none focus:ring-2 focus:ring-blue-500" value={newsForm.title} onChange={e => setNewsForm({...newsForm, title: e.target.value})} placeholder="Main headline..." />
+             <div className="bg-gray-50 p-6 rounded-3xl border border-gray-100">
+                <div className="flex items-center space-x-2 mb-4">
+                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600">News Publisher (Admin Only)</span>
+                </div>
+                <form onSubmit={handlePostNews} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Post Title</label>
+                        <input required className="w-full border border-gray-200 bg-white rounded-xl px-4 py-3 font-bold outline-none focus:ring-2 focus:ring-blue-500" value={newsForm.title} onChange={e => setNewsForm({...newsForm, title: e.target.value})} placeholder="Main headline..." />
+                      </div>
+                      <div className="flex items-center space-x-3 bg-white p-3 rounded-xl border border-gray-200">
+                         <input type="checkbox" id="important" className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500" checked={newsForm.important} onChange={e => setNewsForm({...newsForm, important: e.target.checked})} />
+                         <label htmlFor="important" className="text-xs font-black text-gray-600 uppercase tracking-widest cursor-pointer">Mark as Important Update</label>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-3 bg-white p-3 rounded-xl border border-gray-200">
-                       <input type="checkbox" id="important" className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500" checked={newsForm.important} onChange={e => setNewsForm({...newsForm, important: e.target.checked})} />
-                       <label htmlFor="important" className="text-xs font-black text-gray-600 uppercase tracking-widest cursor-pointer">Mark as Important Update</label>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Cover Image</label>
+                      <div className="flex items-center space-x-4">
+                         <div className="w-20 h-20 bg-white rounded-xl border border-gray-200 flex items-center justify-center overflow-hidden">
+                            {newsForm.imageUrl ? <img src={newsForm.imageUrl} className="w-full h-full object-cover" /> : <i className="fas fa-image text-gray-200"></i>}
+                         </div>
+                         <button type="button" onClick={() => newsImgRef.current?.click()} className="bg-blue-100 text-blue-600 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-200 transition-all">Upload Photo</button>
+                         <input type="file" ref={newsImgRef} className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'news')} />
+                      </div>
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Cover Image</label>
-                    <div className="flex items-center space-x-4">
-                       <div className="w-20 h-20 bg-white rounded-xl border border-gray-200 flex items-center justify-center overflow-hidden">
-                          {newsForm.imageUrl ? <img src={newsForm.imageUrl} className="w-full h-full object-cover" /> : <i className="fas fa-image text-gray-200"></i>}
-                       </div>
-                       <button type="button" onClick={() => newsImgRef.current?.click()} className="bg-blue-100 text-blue-600 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-200 transition-all">Upload Photo</button>
-                       <input type="file" ref={newsImgRef} className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'news')} />
-                    </div>
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Article Content</label>
+                    <textarea rows={5} required className="w-full border border-gray-200 bg-white rounded-2xl px-4 py-3 font-bold outline-none focus:ring-2 focus:ring-blue-500 resize-none" value={newsForm.content} onChange={e => setNewsForm({...newsForm, content: e.target.value})} placeholder="Write the full story here..." />
                   </div>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Article Content</label>
-                  <textarea rows={5} required className="w-full border border-gray-200 bg-white rounded-2xl px-4 py-3 font-bold outline-none focus:ring-2 focus:ring-blue-500 resize-none" value={newsForm.content} onChange={e => setNewsForm({...newsForm, content: e.target.value})} placeholder="Write the full story here..." />
-                </div>
-                <button type="submit" className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-lg hover:bg-blue-700 transition-all">
-                  {newsForm.id ? 'Update News Article' : 'Publish to League Feed'}
-                </button>
-             </form>
+                  <button type="submit" className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-lg hover:bg-blue-700 transition-all">
+                    {newsForm.id ? 'Update News Article' : 'Publish to League Feed'}
+                  </button>
+                </form>
+             </div>
 
              <div className="space-y-3">
                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-4">Manage Recent Posts</p>
