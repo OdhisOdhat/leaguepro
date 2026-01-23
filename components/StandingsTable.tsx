@@ -1,4 +1,5 @@
-import React from 'react';
+
+import React from 'https://esm.sh/react@19.0.0';
 import { Standing, Team, LeagueSettings } from '../types.ts';
 
 interface StandingsTableProps {
