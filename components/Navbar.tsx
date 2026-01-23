@@ -10,10 +10,11 @@ interface NavbarProps {
   selectedTeamId: string | null;
   teams: Team[];
   isSyncing?: boolean;
+  syncError?: string | null;
   leagueSettings: LeagueSettings;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ currentView, setView, role, onLogout, selectedTeamId, teams, isSyncing, leagueSettings }) => {
+const Navbar: React.FC<NavbarProps> = ({ currentView, setView, role, onLogout, selectedTeamId, teams, isSyncing, syncError, leagueSettings }) => {
   const managedTeam = teams.find(t => t.id === selectedTeamId);
 
   return (
@@ -51,10 +52,10 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, setView, role, onLogout, s
         </div>
 
         <div className="flex items-center space-x-4 mt-4 md:mt-0">
-          <div className={`hidden lg:flex items-center space-x-2 px-3 py-1.5 rounded-full border transition-colors ${isSyncing ? 'bg-amber-50 border-amber-100' : 'bg-green-50 border-green-100'}`}>
-            <div className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-amber-500 animate-spin' : 'bg-green-500 animate-pulse'}`}></div>
-            <span className={`text-[10px] font-black uppercase tracking-widest ${isSyncing ? 'text-amber-700' : 'text-green-700'}`}>
-              {isSyncing ? 'Turso Cloud Sync' : 'Turso Data Active'}
+          <div className={`hidden lg:flex items-center space-x-2 px-3 py-1.5 rounded-full border transition-colors ${syncError ? 'bg-red-50 border-red-100' : isSyncing ? 'bg-amber-50 border-amber-100' : 'bg-green-50 border-green-100'}`}>
+            <div className={`w-1.5 h-1.5 rounded-full ${syncError ? 'bg-red-500' : isSyncing ? 'bg-amber-500 animate-spin' : 'bg-green-500 animate-pulse'}`}></div>
+            <span className={`text-[10px] font-black uppercase tracking-widest ${syncError ? 'text-red-700' : isSyncing ? 'text-amber-700' : 'text-green-700'}`}>
+              {syncError ? 'Turso Offline' : isSyncing ? 'Turso Cloud Sync' : 'Turso Data Active'}
             </span>
           </div>
 
