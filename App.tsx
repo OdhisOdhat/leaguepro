@@ -1,6 +1,6 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
-import { createClient } from '@libsql/client';
+import React, { useState, useMemo, useEffect } from 'https://esm.sh/react@19.0.0';
+import { createClient } from 'https://esm.sh/@libsql/client@0.17.0/web';
 import { Team, Match, Player, Standing, UserRole, GoalScorer, CardEvent, LeagueSettings } from './types.ts';
 import { INITIAL_TEAMS, INITIAL_MATCHES, DEFAULT_LEAGUE_SETTINGS } from './constants.tsx';
 import Dashboard from './components/Dashboard.tsx';
