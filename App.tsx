@@ -23,7 +23,7 @@ const STORAGE_KEYS = {
   TEAMS: 'lp_teams_v2',
   MATCHES: 'lp_matches_v2',
   SETTINGS: 'lp_settings_v2',
-  SESSION: 'lp_session_v2'
+  SESSION: 'lp_session_v3' // Support userId for manager flows
 };
 
 const db = createClient(TURSO_CONFIG);
@@ -31,6 +31,7 @@ const db = createClient(TURSO_CONFIG);
 const App: React.FC = () => {
   const [view, setView] = useState<string>('dashboard');
   const [role, setRole] = useState<UserRole>(UserRole.PUBLIC);
+  const [userId, setUserId] = useState<string | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [leagueSettings, setLeagueSettings] = useState<LeagueSettings>(DEFAULT_LEAGUE_SETTINGS);
@@ -93,21 +94,33 @@ const App: React.FC = () => {
       };
     },
     login: async (username: string, password: string) => {
-      if (username === 'admin' && password === 'admin123') return { role: UserRole.ADMIN };
+      if (username === 'admin' && password === 'admin123') return { role: UserRole.ADMIN, id: 'u-admin' };
       const res = await db.execute({
-        sql: "SELECT role, teamId FROM users WHERE username = ? AND password = ?",
+        sql: "SELECT id, role, teamId FROM users WHERE username = ? AND password = ?",
         args: [username, password]
       });
-      if (res.rows.length > 0) return { role: res.rows[0].role as UserRole, teamId: res.rows[0].teamId as string };
+      if (res.rows.length > 0) return { 
+        id: res.rows[0].id as string, 
+        role: res.rows[0].role as UserRole, 
+        teamId: res.rows[0].teamId as string 
+      };
       throw new Error("Invalid credentials");
     },
     register: async (username: string, password: string, teamId: string) => {
       const id = `u-${Date.now()}`;
+      const actualTeamId = teamId || null;
       await db.execute({
         sql: "INSERT INTO users (id, username, password, role, teamId) VALUES (?, ?, ?, ?, ?)",
-        args: [id, username, password, UserRole.TEAM_MANAGER, teamId]
+        args: [id, username, password, UserRole.TEAM_MANAGER, actualTeamId]
       });
-      return { id, username, role: UserRole.TEAM_MANAGER, teamId };
+      return { id, username, role: UserRole.TEAM_MANAGER, teamId: actualTeamId };
+    },
+    linkUserToTeam: async (uid: string, tid: string) => {
+      addLog(`Linking user ${uid} to team ${tid}...`);
+      await db.execute({
+        sql: "UPDATE users SET teamId = ? WHERE id = ?",
+        args: [tid, uid]
+      });
     }
   };
 
@@ -130,6 +143,7 @@ const App: React.FC = () => {
       if (savedSession) {
         const session = JSON.parse(savedSession);
         setRole(session.role);
+        setUserId(session.userId || null);
         setSelectedTeamId(session.teamId || null);
       }
       setIsLoaded(true);
@@ -166,10 +180,17 @@ const App: React.FC = () => {
       localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(teams));
       localStorage.setItem(STORAGE_KEYS.MATCHES, JSON.stringify(matches));
       localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(leagueSettings));
-      if (role !== UserRole.PUBLIC) localStorage.setItem(STORAGE_KEYS.SESSION, JSON.stringify({ role, teamId: selectedTeamId }));
-      else localStorage.removeItem(STORAGE_KEYS.SESSION);
+      if (role !== UserRole.PUBLIC) {
+        localStorage.setItem(STORAGE_KEYS.SESSION, JSON.stringify({ 
+          role, 
+          userId, 
+          teamId: selectedTeamId 
+        }));
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.SESSION);
+      }
     }
-  }, [teams, matches, leagueSettings, role, selectedTeamId, isLoaded]);
+  }, [teams, matches, leagueSettings, role, selectedTeamId, userId, isLoaded]);
 
   const standings = useMemo(() => {
     const table: Record<string, Standing> = {};
@@ -217,7 +238,7 @@ const App: React.FC = () => {
     <div className="min-h-screen flex flex-col selection:bg-blue-100 selection:text-blue-900">
       <Navbar 
         currentView={view} setView={setView} role={role} 
-        onLogout={() => { setRole(UserRole.PUBLIC); setSelectedTeamId(null); setView('dashboard'); }} 
+        onLogout={() => { setRole(UserRole.PUBLIC); setUserId(null); setSelectedTeamId(null); setView('dashboard'); }} 
         selectedTeamId={selectedTeamId} teams={teams} 
         isSyncing={isSyncing} syncError={syncError} leagueSettings={leagueSettings}
       />
@@ -235,19 +256,42 @@ const App: React.FC = () => {
               case 'login': return (
                 <Login 
                   teams={teams} 
-                  onLogin={(r, t) => { setRole(r); setSelectedTeamId(t || null); setView('dashboard'); }} 
+                  onLogin={(r, t, uid) => { 
+                    setRole(r); 
+                    setSelectedTeamId(t || null); 
+                    setUserId(uid || null);
+                    setView('dashboard'); 
+                  }} 
                   onBack={() => setView('dashboard')} 
                   loginFn={dbService.login} 
                   registerFn={dbService.register}
                 />
               );
-              case 'dashboard': return <Dashboard teams={teams} matches={matches} standings={standings} setView={setView} leagueSettings={leagueSettings} />;
+              case 'dashboard': return (
+                <Dashboard 
+                  teams={teams} 
+                  matches={matches} 
+                  standings={standings} 
+                  setView={setView} 
+                  leagueSettings={leagueSettings} 
+                  role={role} 
+                  selectedTeamId={selectedTeamId} 
+                />
+              );
               case 'standings': return <StandingsTable standings={standings} teams={teams} leagueSettings={leagueSettings} />;
               case 'registration': return <TeamRegistration onRegister={(tData) => { 
-                  const newTeam = { ...tData, id: `t${Date.now()}`, players: [] };
+                  const newTeamId = `t${Date.now()}`;
+                  const newTeam = { ...tData, id: newTeamId, players: [] };
                   setTeams(p => [...p, newTeam]);
                   dbService.saveTeam(newTeam).catch(() => {});
-                  setView('standings');
+                  
+                  // If logged-in Manager with no team, link this new team
+                  if (role === UserRole.TEAM_MANAGER && !selectedTeamId && userId) {
+                    setSelectedTeamId(newTeamId);
+                    dbService.linkUserToTeam(userId, newTeamId).catch(() => {});
+                  }
+                  
+                  setView('players'); // Redirect to squad management after registration
                 }} existingNames={teams.map(t => t.name)} />;
               case 'schedule': return <MatchScheduler 
                 matches={matches} teams={teams} isAdmin={role === UserRole.ADMIN} role={role} 
@@ -268,9 +312,9 @@ const App: React.FC = () => {
                 onRegisterTeam={() => {}} 
                 onManageSquad={(tid) => { setSelectedTeamId(tid); setView('players'); }}
                 onReset={() => { if(confirm('Reset local data?')) { setTeams(INITIAL_TEAMS); setMatches(INITIAL_MATCHES); } }} 
-                onImportState={() => {}}
-                dbLogs={dbLogs}
                 onForceSync={forcePushToCloud}
+                dbLogs={dbLogs}
+                onImportState={() => {}}
               />;
               case 'players':
                 const teamToManage = teams.find(t => t.id === selectedTeamId);
@@ -279,7 +323,17 @@ const App: React.FC = () => {
                   setTeams(teams.map(t => t.id === teamToManage.id ? updated : t));
                   dbService.saveTeam(updated).catch(() => {});
                 }} onBack={() => setView(role === UserRole.ADMIN ? 'admin' : 'dashboard')} isAdminOverride={role === UserRole.ADMIN} /> : null;
-              default: return <Dashboard teams={teams} matches={matches} standings={standings} setView={setView} leagueSettings={leagueSettings} />;
+              default: return (
+                <Dashboard 
+                  teams={teams} 
+                  matches={matches} 
+                  standings={standings} 
+                  setView={setView} 
+                  leagueSettings={leagueSettings} 
+                  role={role} 
+                  selectedTeamId={selectedTeamId} 
+                />
+              );
             }
           })()}
         </ErrorBoundary>
