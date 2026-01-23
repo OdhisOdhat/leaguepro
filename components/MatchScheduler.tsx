@@ -1,6 +1,5 @@
-
 import React, { useState, useMemo } from 'react';
-import { Match, Team, UserRole, GoalScorer, Player, CardEvent, LeagueSettings } from '../types';
+import { Match, Team, UserRole, GoalScorer, Player, CardEvent, LeagueSettings } from '../types.ts';
 
 interface MatchSchedulerProps {
   matches: Match[];
