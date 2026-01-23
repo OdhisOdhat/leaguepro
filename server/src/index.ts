@@ -1,3 +1,4 @@
+
 import express from 'express';
 import cors from 'cors';
 import { createClient } from '@libsql/client';
@@ -9,7 +10,7 @@ const app = express();
 const port = process.env.PORT || 3001;
 
 // Middleware configuration
-app.use(cors() as any);
+app.use(cors({ origin: '*' }) as any);
 app.use(express.json({ limit: '10mb' }) as any);
 
 /**
@@ -23,6 +24,8 @@ const db = createClient({
 
 async function setupDb() {
   try {
+    console.log('Connecting to Turso Cloud at:', "libsql://odhisodhat-vercel-icfg-ftcymaxmqxj9bs7ney2w5mpx.aws-us-east-1.turso.io");
+    
     // Create tables if they don't exist
     await db.execute(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT UNIQUE, password TEXT, role TEXT, teamId TEXT);`);
     await db.execute(`CREATE TABLE IF NOT EXISTS teams (id TEXT PRIMARY KEY, data TEXT);`);
@@ -36,12 +39,12 @@ async function setupDb() {
         sql: 'INSERT INTO users (id, username, password, role) VALUES (?, ?, ?, ?)',
         args: ['u-admin', 'admin', 'admin123', 'ADMIN']
       });
-      console.log('Seeded default admin user');
+      console.log('✅ Seeded default admin user (admin/admin123)');
     }
     
-    console.log('Turso Database initialized successfully');
+    console.log('🚀 Turso Database initialized and ready');
   } catch (err) {
-    console.error('Turso DB Error:', err);
+    console.error('❌ Turso DB Error:', err);
   }
 }
 
@@ -124,6 +127,6 @@ app.post('/api/auth/login', async (req: any, res: any) => {
 
 setupDb().then(() => {
   app.listen(port, () => {
-    console.log(`Backend running with Turso integration at http://localhost:${port}`);
+    console.log(`📡 Backend listening at http://localhost:${port}`);
   });
 });
