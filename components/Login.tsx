@@ -4,9 +4,9 @@ import { UserRole, Team } from '../types.ts';
 
 interface LoginProps {
   teams: Team[];
-  onLogin: (role: UserRole, teamId?: string) => void;
+  onLogin: (role: UserRole, teamId?: string, userId?: string) => void;
   onBack: () => void;
-  loginFn: (u: string, p: string) => Promise<{role: UserRole, teamId?: string}>;
+  loginFn: (u: string, p: string) => Promise<{role: UserRole, teamId?: string, id?: string}>;
   registerFn?: (u: string, p: string, teamId: string) => Promise<any>;
 }
 
@@ -27,14 +27,13 @@ const Login: React.FC<LoginProps> = ({ teams, onLogin, onBack, loginFn, register
     try {
       if (isRegistering) {
         if (activeTab === 'admin') throw new Error('Admin registration disabled');
-        if (!selectedTeamId) throw new Error('Please select a team');
         if (!registerFn) throw new Error('Registration unavailable');
 
         const user = await registerFn(username, password, selectedTeamId);
-        onLogin(UserRole.TEAM_MANAGER, user.teamId);
+        onLogin(UserRole.TEAM_MANAGER, user.teamId, user.id);
       } else {
         const user = await loginFn(username, password);
-        onLogin(user.role, user.teamId);
+        onLogin(user.role, user.teamId, user.id);
       }
     } catch (err: any) {
       setError(err.message || 'Authentication failed. Please try again.');
@@ -54,7 +53,7 @@ const Login: React.FC<LoginProps> = ({ teams, onLogin, onBack, loginFn, register
             {isRegistering ? 'Join LeaguePro' : 'Secure Access'}
           </h2>
           <p className="mt-2 text-sm text-gray-500 font-medium">
-            {isRegistering ? 'Create an account to participate' : 'Sign in to manage operations'}
+            {isRegistering ? 'Create a manager account' : 'Sign in to manage operations'}
           </p>
         </div>
 
@@ -114,18 +113,21 @@ const Login: React.FC<LoginProps> = ({ teams, onLogin, onBack, loginFn, register
 
             {isRegistering && (
               <div className="animate-in slide-in-from-top-2">
-                <label className="block text-[10px] font-black text-gray-400 uppercase mb-2 ml-1">Affiliated Team</label>
+                <div className="flex justify-between items-center mb-2 ml-1">
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Affiliated Team</label>
+                  <span className="text-[9px] font-bold text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full uppercase">Optional</span>
+                </div>
                 <select
-                  required
                   className="w-full rounded-2xl px-5 py-4 border border-gray-200 bg-gray-50 focus:ring-4 focus:ring-blue-50 outline-none font-bold bg-white"
                   value={selectedTeamId}
                   onChange={(e) => setSelectedTeamId(e.target.value)}
                 >
-                  <option value="">Select Team</option>
+                  <option value="">None / Register Team Later</option>
                   {teams.map((t) => (
                     <option key={t.id} value={t.id}>{t.name}</option>
                   ))}
                 </select>
+                <p className="mt-2 text-[10px] text-gray-400 font-medium px-1 italic">You can link or register a team once logged in.</p>
               </div>
             )}
           </div>
