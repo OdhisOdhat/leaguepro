@@ -13,7 +13,7 @@ import Navbar from './components/Navbar.tsx';
 import Login from './components/Login.tsx';
 import ErrorBoundary from './components/ErrorBoundary.tsx';
 
-// Turso Cloud Configuration - Use HTTPS for browser/GitHub Pages compatibility
+// Turso Cloud Configuration
 const TURSO_CONFIG = {
   url: "https://odhisodhat-vercel-icfg-ftcymaxmqxj9bs7ney2w5mpx.aws-us-east-1.turso.io",
   authToken: "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NjkwODMyMjEsImlkIjoiNzA2MmVkNjItNDUwOS00YmEzLWIwYWYtNjBjY2YzNDJlMTg4IiwicmlkIjoiMDQ4ZmNlMDctMGEwOS00OGIxLTg3OWQtNTEzZGZiMWUxZmUzIn0.0i537WhP95mSF1AUrhIiakcMQebMcDFk21Q2C0d4b-YZpgJB4Plba8ox3wDDLtoFhJrsKDtr7r_E-dQ_aIDiBw"
@@ -100,6 +100,14 @@ const App: React.FC = () => {
       });
       if (res.rows.length > 0) return { role: res.rows[0].role as UserRole, teamId: res.rows[0].teamId as string };
       throw new Error("Invalid credentials");
+    },
+    register: async (username: string, password: string, teamId: string) => {
+      const id = `u-${Date.now()}`;
+      await db.execute({
+        sql: "INSERT INTO users (id, username, password, role, teamId) VALUES (?, ?, ?, ?, ?)",
+        args: [id, username, password, UserRole.TEAM_MANAGER, teamId]
+      });
+      return { id, username, role: UserRole.TEAM_MANAGER, teamId };
     }
   };
 
@@ -224,7 +232,15 @@ const App: React.FC = () => {
         <ErrorBoundary componentName={`View: ${view}`}>
           {(() => {
             switch (view) {
-              case 'login': return <Login teams={teams} onLogin={(r, t) => { setRole(r); setSelectedTeamId(t || null); setView('dashboard'); }} onBack={() => setView('dashboard')} loginFn={dbService.login} />;
+              case 'login': return (
+                <Login 
+                  teams={teams} 
+                  onLogin={(r, t) => { setRole(r); setSelectedTeamId(t || null); setView('dashboard'); }} 
+                  onBack={() => setView('dashboard')} 
+                  loginFn={dbService.login} 
+                  registerFn={dbService.register}
+                />
+              );
               case 'dashboard': return <Dashboard teams={teams} matches={matches} standings={standings} setView={setView} leagueSettings={leagueSettings} />;
               case 'standings': return <StandingsTable standings={standings} teams={teams} leagueSettings={leagueSettings} />;
               case 'registration': return <TeamRegistration onRegister={(tData) => { 
