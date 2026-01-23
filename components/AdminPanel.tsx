@@ -1,17 +1,20 @@
 
 import React, { useState, useRef } from 'https://esm.sh/react@19.0.0';
-import { Team, Match, GoalScorer, LeagueSettings, NewsItem } from '../types.ts';
+import { Team, Match, GoalScorer, LeagueSettings, NewsItem, Ad } from '../types.ts';
 
 interface AdminPanelProps {
   teams: Team[];
   matches: Match[];
   news: NewsItem[];
+  ads: Ad[];
   leagueSettings: LeagueSettings;
   onUpdateLeagueSettings: (settings: LeagueSettings) => void;
   onUpdateMatch: (id: string, h: number, a: number, scorers?: GoalScorer[], cards?: any[], refereeName?: string) => void;
   onUpdateTeam?: (updatedTeam: Team) => void;
   onSaveNews: (item: NewsItem) => void;
   onDeleteNews: (id: string) => void;
+  onSaveAd: (ad: Ad) => void;
+  onDeleteAd: (id: string) => void;
   onRegisterTeam: (team: Omit<Team, 'id' | 'players'>) => void;
   onManageSquad: (teamId: string) => void;
   onReset: () => void;
@@ -21,33 +24,39 @@ interface AdminPanelProps {
 }
 
 const AdminPanel: React.FC<AdminPanelProps> = ({ 
-  teams, news, leagueSettings, onUpdateLeagueSettings, onUpdateTeam, onSaveNews, onDeleteNews, onManageSquad, onReset, dbLogs, onForceSync 
+  teams, news, ads, leagueSettings, onUpdateLeagueSettings, onUpdateTeam, onSaveNews, onDeleteNews, onSaveAd, onDeleteAd, onManageSquad, onReset, dbLogs, onForceSync 
 }) => {
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [settingsForm, setSettingsForm] = useState<LeagueSettings>(leagueSettings);
   const [newsForm, setNewsForm] = useState<Partial<NewsItem>>({
     title: '', content: '', imageUrl: '', important: false
   });
+  const [adForm, setAdForm] = useState<Partial<Ad>>({
+    title: '', description: '', imageUrl: '', linkUrl: '', isActive: true
+  });
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     branding: false,
     cloud: true,
     members: false,
-    news: true
+    news: false,
+    ads: true
   });
   
   const logoInputRef = useRef<HTMLInputElement>(null);
   const newsImgRef = useRef<HTMLInputElement>(null);
+  const adImgRef = useRef<HTMLInputElement>(null);
 
   const toggleSection = (section: string) => setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'logo' | 'news') => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'logo' | 'news' | 'ad') => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result as string;
         if (target === 'logo') setSettingsForm({ ...settingsForm, logo: base64 });
-        else setNewsForm({ ...newsForm, imageUrl: base64 });
+        else if (target === 'news') setNewsForm({ ...newsForm, imageUrl: base64 });
+        else if (target === 'ad') setAdForm({ ...adForm, imageUrl: base64 });
       };
       reader.readAsDataURL(file);
     }
@@ -66,6 +75,21 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     });
     setNewsForm({ title: '', content: '', imageUrl: '', important: false });
     alert('News posted successfully!');
+  };
+
+  const handlePostAd = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adForm.title || !adForm.linkUrl) return;
+    onSaveAd({
+      id: adForm.id || `ad-${Date.now()}`,
+      title: adForm.title,
+      description: adForm.description || '',
+      imageUrl: adForm.imageUrl || '',
+      linkUrl: adForm.linkUrl,
+      isActive: adForm.isActive !== undefined ? adForm.isActive : true
+    });
+    setAdForm({ title: '', description: '', imageUrl: '', linkUrl: '', isActive: true });
+    alert('Advertisement updated!');
   };
 
   const SectionHeader: React.FC<{ title: string; icon: string; sectionKey: string }> = ({ title, icon, sectionKey }) => (
@@ -99,6 +123,70 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                 {dbLogs?.map((log, i) => <div key={i} className="text-indigo-100 border-l border-indigo-500/30 pl-3 py-0.5">{log}</div>)}
               </div>
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* Hero Ad Management */}
+      <div className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-xl">
+        <SectionHeader title="Hero Ad Management" icon="fa-ad" sectionKey="ads" />
+        {expandedSections.ads && (
+          <div className="space-y-8 animate-in slide-in-from-top-2">
+             <form onSubmit={handlePostAd} className="space-y-6 bg-blue-50/30 p-6 rounded-3xl border border-blue-100/50">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Sponsor/Ad Name</label>
+                      <input required className="w-full border border-gray-200 bg-white rounded-xl px-4 py-3 font-bold outline-none focus:ring-2 focus:ring-blue-500" value={adForm.title} onChange={e => setAdForm({...adForm, title: e.target.value})} placeholder="e.g. Nike Football" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Redirect URL</label>
+                      <input required className="w-full border border-gray-200 bg-white rounded-xl px-4 py-3 font-bold outline-none focus:ring-2 focus:ring-blue-500" value={adForm.linkUrl} onChange={e => setAdForm({...adForm, linkUrl: e.target.value})} placeholder="https://..." />
+                    </div>
+                    <div className="flex items-center space-x-3 bg-white p-3 rounded-xl border border-gray-200">
+                       <input type="checkbox" id="adActive" className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500" checked={adForm.isActive} onChange={e => setAdForm({...adForm, isActive: e.target.checked})} />
+                       <label htmlFor="adActive" className="text-xs font-black text-gray-600 uppercase tracking-widest cursor-pointer">Live on Dashboard</label>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Ad Creative (Logo/Photo)</label>
+                    <div className="flex items-center space-x-4">
+                       <div className="w-24 h-24 bg-white rounded-xl border border-gray-200 flex items-center justify-center overflow-hidden">
+                          {adForm.imageUrl ? <img src={adForm.imageUrl} className="w-full h-full object-cover" /> : <i className="fas fa-bullhorn text-gray-200 text-2xl"></i>}
+                       </div>
+                       <button type="button" onClick={() => adImgRef.current?.click()} className="bg-blue-100 text-blue-600 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-200 transition-all">Select Image</button>
+                       <input type="file" ref={adImgRef} className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'ad')} />
+                    </div>
+                    <div className="mt-4 space-y-1">
+                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Promotional Text</label>
+                       <textarea rows={2} className="w-full border border-gray-200 bg-white rounded-xl px-4 py-2 font-bold outline-none focus:ring-2 focus:ring-blue-500 resize-none" value={adForm.description} onChange={e => setAdForm({...adForm, description: e.target.value})} placeholder="Short marketing blurb..." />
+                    </div>
+                  </div>
+                </div>
+                <button type="submit" className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-lg hover:bg-blue-700 transition-all">
+                  {adForm.id ? 'Update Advertisement' : 'Add Sponsor Banner'}
+                </button>
+             </form>
+
+             <div className="space-y-3">
+                {ads.map(ad => (
+                  <div key={ad.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-transparent hover:border-blue-100 transition-all group">
+                    <div className="flex items-center space-x-4">
+                      <img src={ad.imageUrl} className="w-12 h-12 rounded-lg object-cover bg-white" />
+                      <div>
+                        <p className="font-black text-gray-900 text-sm">{ad.title}</p>
+                        <p className={`text-[9px] font-black uppercase tracking-widest ${ad.isActive ? 'text-green-500' : 'text-gray-300'}`}>
+                          {ad.isActive ? 'Active' : 'Inactive'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex space-x-1">
+                      <button onClick={() => setAdForm(ad)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg"><i className="fas fa-edit"></i></button>
+                      <button onClick={() => confirm('Remove this ad?') && onDeleteAd(ad.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><i className="fas fa-trash-alt"></i></button>
+                    </div>
+                  </div>
+                ))}
+             </div>
           </div>
         )}
       </div>
